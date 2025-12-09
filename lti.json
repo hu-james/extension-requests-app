@@ -1,0 +1,47 @@
+{
+  "title": "Assignment Extension Manager",
+  "description": "Assignment extension manager LTI tool for Canvas LMS.",
+  "scopes": [
+    "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem",
+    "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem.readonly",
+    "https://purl.imsglobal.org/spec/lti-ags/scope/result.readonly",
+    "https://purl.imsglobal.org/spec/lti-ags/scope/score",
+    "https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly",
+    "https://canvas.instructure.com/lti/account_lookup/scope/show",
+    "https://canvas.instructure.com/lti-ags/progress/scope/show"
+  ],
+  "extensions": [
+    {
+      "platform": "canvas.instructure.com",
+      "settings": {
+        "platform": "canvas.instructure.com",
+        "placements": [
+          {
+            "placement": "course_navigation",
+            "message_type": "LtiResourceLinkRequest"
+          },
+          {
+            "placement": "assignment_menu",
+            "message_type": "LtiResourceLinkRequest"
+          },
+          {
+            "placement": "course_assignments_menu",
+            "message_type": "LtiResourceLinkRequest"
+          }
+        ]
+      },
+      "privacy_level": "public"
+    }
+  ],
+  "public_jwk": {},
+  "custom_fields": {
+    "canvas_course_id": "$Canvas.course.id",
+    "canvas_user_id": "$Canvas.user.id",
+    "canvas_user_name": "$Person.name.full",
+    "canvas_assignment_id": "$Canvas.assignment.id",
+    "canvas_user_roles": "$Canvas.membership.roles"
+  },
+  "public_jwk_url": "http://192.168.42.42:5001/lti/jwks",
+  "target_link_uri": "http://192.168.42.42:5001/lti/launch",
+  "oidc_initiation_url": "http://192.168.42.42:5001/lti/login"
+}

@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assignment Extension Manager</title>
+</head>
+<body>
+    <div style="text-align: center; padding: 50px;">
+        <h2>Loading Assignment Extension Manager...</h2>
+        <p>Please wait while we redirect you to the application.</p>
+    </div>
+
+    <script>
+        // Redirect immediately with session token in URL
+        const redirectUrl = "http://192.168.42.42:3008{{ redirect_url|safe }}";
+        console.log("LTI 1.3 Launch - Redirecting with session token");
+        console.log("Redirect URL:", redirectUrl);
+        console.log("Session token in URL:", redirectUrl.includes('session_token'));
+        window.location.href = redirectUrl;
+    </script>
+</body>
+</html>

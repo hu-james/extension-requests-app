@@ -1,0 +1,18 @@
+# Flask
+settings.py
+*.pyc
+venv/
+error.log
+*.DS_STORE
+test.db
+
+# Environment variables
+.env
+
+# Cryptographic keys and certificates
+keys/
+*.pem
+*.key
+*.p12
+*.pfx
+

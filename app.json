@@ -1,0 +1,34 @@
+{
+  "name": "Assignment Extension Manager",
+  "description": "Canvas LTI tool for managing assignment deadline extensions",
+  "keywords": ["flask", "lti", "canvas", "education"],
+  "website": "https://github.com/your-username/auto-extend",
+  "repository": "https://github.com/your-username/auto-extend",
+  "success_url": "/",
+  "addons": [
+    "heroku-postgresql:mini"
+  ],
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "env": {
+    "FLASK_APP": {
+      "description": "Flask application entry point",
+      "value": "views.py"
+    },
+    "SECRET_KEY": {
+      "description": "Secret key for Flask sessions",
+      "generator": "secret"
+    },
+    "LTI_DEPLOYMENT_ID": {
+      "description": "LTI deployment ID",
+      "value": "1"
+    },
+    "LTI_ISSUER": {
+      "description": "Canvas LTI issuer URL",
+      "value": "https://canvas.instructure.com"
+    }
+  }
+}

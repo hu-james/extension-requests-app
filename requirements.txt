@@ -1,0 +1,14 @@
+Flask>=2.3.0
+Flask-SQLAlchemy>=3.0.0
+Flask-Migrate>=4.0.5
+Flask-CORS>=4.0.0
+Jinja2>=3.1.0
+canvasapi>=3.2.0
+python-dateutil>=2.8.2
+werkzeug>=3.0.0
+email-validator>=2.1.0
+psycopg2-binary>=2.9.9
+PyJWT>=2.8.0
+cryptography>=41.0.4
+requests>=2.31.0
+python-dotenv>=1.0.0
