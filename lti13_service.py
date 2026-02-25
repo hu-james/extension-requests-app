@@ -10,6 +10,7 @@ from lti13_config import lti_config
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 import base64
+import settings
 
 # Temporary state storage (in production, use Redis or database)
 _state_storage = {}
@@ -51,13 +52,7 @@ class LTI13Service:
             session['lti_state'] = state
             session['lti_nonce'] = nonce
             session['target_link_uri'] = target_link_uri
-            
-            # Debug logging
-            print(f"🔍 OIDC Login - Generated state: {state}")
-            print(f"🔍 OIDC Login - Session ID: {session.get('session_id', 'none')}")
-            print(f"🔍 OIDC Login - Stored state in session: {session.get('lti_state')}")
-            print(f"🔍 OIDC Login - Stored in temp storage: {state in _state_storage}")
-            
+                        
             # Build authorization URL
             auth_params = {
                 'response_type': 'id_token',
@@ -92,13 +87,6 @@ class LTI13Service:
             if not id_token:
                 raise ValueError("Missing id_token")
             
-            # Debug logging
-            print(f"🔍 Launch - Received state: {state}")
-            print(f"🔍 Launch - Session state: {session.get('lti_state')}")
-            print(f"🔍 Launch - Session keys: {list(session.keys())}")
-            print(f"🔍 Launch - State in temp storage: {state in _state_storage}")
-            
-            # Validate state (try temp storage first, then session)
             stored_data = _state_storage.get(state)
             if stored_data:
                 current_time = time.time()
@@ -107,7 +95,6 @@ class LTI13Service:
                 for expired_state in expired_states:
                     del _state_storage[expired_state]
                 
-                # Remove this state as it's now used
                 nonce = stored_data['nonce']
                 del _state_storage[state]
             elif state == session.get('lti_state'):
@@ -306,12 +293,7 @@ class LTI13Service:
     def is_instructor(self):
         """Check if current user has instructor role"""
         roles = session.get('lti_roles', [])
-        instructor_roles = [
-            'http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor',
-            'http://purl.imsglobal.org/vocab/lis/v2/membership#ContentDeveloper',
-            'http://purl.imsglobal.org/vocab/lis/v2/institution/person#Administrator'
-        ]
-        return any(role in instructor_roles for role in roles)
+        return any(role in settings.INSTRUCTOR_ROLES for role in roles)
     
     def is_student(self):
         """Check if current user has student role"""
@@ -324,7 +306,6 @@ class LTI13Service:
     def get_canvas_access_token(self):
         """
         Get Canvas API access token using LTI 1.3 OAuth2 flow
-        Note: This requires that Canvas has granted the necessary scopes
         """
         try:
             # Check if we already have a valid token
@@ -335,7 +316,6 @@ class LTI13Service:
                 return token
 
             # Request new access token
-            # This uses the LTI 1.3 service authorization flow
             data = {
                 'grant_type': 'client_credentials',
                 'client_assertion_type': 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',

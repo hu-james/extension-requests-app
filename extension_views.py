@@ -19,6 +19,7 @@ from models import (
 )
 from canvas_service import CanvasService
 from file_security import validate_and_save_file, FileValidationError
+import settings
 
 
 logger = logging.getLogger(__name__)
@@ -80,13 +81,7 @@ def is_instructor(f):
     def decorated_function(*args, **kwargs):
         # Check if user has instructor role in LTI 1.3
         roles = session.get('lti_roles', [])
-        instructor_roles = [
-            'http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor',
-            'http://purl.imsglobal.org/vocab/lis/v2/membership#ContentDeveloper',
-            'http://purl.imsglobal.org/vocab/lis/v2/institution/person#Administrator'
-        ]
-
-        is_instructor_role = any(role in instructor_roles for role in roles)
+        is_instructor_role = any(role in settings.INSTRUCTOR_ROLES for role in roles)
 
         if not is_instructor_role:
             logger.warning(f"Non-instructor access attempt to {request.endpoint}")
@@ -702,12 +697,7 @@ def init_extension_routes(app):
             # Allow access if user is the student or has instructor role
             is_student_owner = ext_request.student_id == user.id
             roles = session.get('lti_roles', [])
-            instructor_roles = [
-                'http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor',
-                'http://purl.imsglobal.org/vocab/lis/v2/membership#ContentDeveloper',
-                'http://purl.imsglobal.org/vocab/lis/v2/institution/person#Administrator'
-            ]
-            is_instructor_role = any(role in instructor_roles for role in roles)
+            is_instructor_role = any(role in settings.INSTRUCTOR_ROLES for role in roles)
 
             if not (is_student_owner or is_instructor_role):
                 logger.warning(f"Unauthorized file access attempt by user {user.id}")
