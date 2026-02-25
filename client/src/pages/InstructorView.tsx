@@ -182,7 +182,7 @@ export const InstructorView: React.FC<{ courseId: number }> = ({ courseId }) => 
   });
 
   return (
-    <div className="p-4">
+    <div className="p-4" id="main-content">
       {/* Skip to main content link */}
       <a href="#main-content" className="skip-to-main">
         Skip to main content
@@ -282,8 +282,8 @@ export const InstructorView: React.FC<{ courseId: number }> = ({ courseId }) => 
 
       {/* Settings Tab */}
       {activeTab === 'settings' && (
-        <main
-          id="main-content"
+        <div
+          id="settings-panel"
           role="tabpanel"
           aria-labelledby="settings-tab"
           className="mb-8"
@@ -409,13 +409,13 @@ export const InstructorView: React.FC<{ courseId: number }> = ({ courseId }) => 
             </fieldset>
           </form>
         )}
-        </main>
+        </div>
       )}
 
       {/* Requests Tab */}
       {activeTab === 'requests' && (
-        <main
-          id="main-content"
+        <div
+          id="requests-panel"
           role="tabpanel"
           aria-labelledby="requests-tab"
         >
@@ -746,7 +746,7 @@ export const InstructorView: React.FC<{ courseId: number }> = ({ courseId }) => 
           ))
           )}
           </div>
-        </main>
+        </div>
       )}
     </div>
   );
