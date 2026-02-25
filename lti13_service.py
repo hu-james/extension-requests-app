@@ -3,7 +3,7 @@ import json
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
-from flask import request, session, redirect, url_for, jsonify
+from flask import request, session, redirect
 from urllib.parse import urlencode, parse_qs
 import requests
 from lti13_config import lti_config
@@ -166,7 +166,7 @@ class LTI13Service:
                             'require': ['exp', 'iat', 'aud', 'iss', 'sub', 'nonce']
                         }
                     )
-                    print(f"JWT validated with issuer: {allowed_issuer}")
+                    self.app.logger.debug(f"JWT validated with issuer: {allowed_issuer}")
                     break
                 except jwt.InvalidIssuerError as e:
                     last_error = e
@@ -367,12 +367,3 @@ class LTI13Service:
         token = jwt.encode(payload, private_key, algorithm='RS256')
 
         return token
-
-    def require_lti_auth(self, f):
-        """Decorator to require LTI authentication"""
-        def decorated_function(*args, **kwargs):
-            if not session.get('lti_authenticated'):
-                return jsonify({'error': 'LTI authentication required'}), 401
-            return f(*args, **kwargs)
-        decorated_function.__name__ = f.__name__
-        return decorated_function

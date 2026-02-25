@@ -155,7 +155,7 @@ Use this IP (e.g., `192.168.42.42`) instead of `localhost` in all Canvas configu
 
 ```bash
 # Start Flask on port 5001, accessible from network
-python app.py
+python views.py
 ```
 
 The server will run at:
@@ -191,7 +191,7 @@ LTI_CLIENT_ID=10000000000003
 ```bash
 # Stop the current Flask server (Ctrl+C)
 # Restart it
-python app.py
+python views.py
 ```
 
 ---
@@ -264,7 +264,7 @@ flask db upgrade
 ### Start Everything
 ```bash
 # Terminal 1: Start Flask
-python app.py
+python views.py
 
 # Terminal 2 (optional): React dev server
 cd client && npm run dev

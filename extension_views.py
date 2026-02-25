@@ -138,8 +138,6 @@ def init_extension_routes(app):
 
         except Exception as e:
             logger.error(f"Error fetching assignments for course {course_id}: {e}", exc_info=True)
-            import traceback
-            traceback.print_exc()
             return jsonify({'error': f'Failed to fetch assignments: {str(e)}'}), 500
 
     @app.route('/api/courses/<int:course_id>/extension-requests', methods=['POST'])

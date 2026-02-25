@@ -5,6 +5,7 @@ import os
 import mimetypes
 from werkzeug.utils import secure_filename
 from flask import current_app
+import settings 
 
 try:
     import magic
@@ -12,8 +13,6 @@ try:
 except ImportError:
     MAGIC_AVAILABLE = False
 
-# Allowed file extensions and MIME types
-ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'txt'}
 
 ALLOWED_MIME_TYPES = {
     'application/pdf',
@@ -24,9 +23,6 @@ ALLOWED_MIME_TYPES = {
     'text/plain'
 }
 
-MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
-
-
 class FileValidationError(Exception):
     """Custom exception for file validation errors"""
     pass
@@ -35,7 +31,7 @@ class FileValidationError(Exception):
 def allowed_file(filename):
     """Check if file extension is allowed"""
     return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+           filename.rsplit('.', 1)[1].lower() in settings.ALLOWED_EXTENSIONS
 
 
 def validate_file_size(file_storage):
@@ -53,9 +49,9 @@ def validate_file_size(file_storage):
     file_size = file_storage.tell()
     file_storage.seek(0)  # Reset to beginning
 
-    if file_size > MAX_FILE_SIZE:
+    if file_size > settings.MAX_FILE_SIZE:
         raise FileValidationError(
-            f"File size ({file_size} bytes) exceeds maximum allowed size ({MAX_FILE_SIZE} bytes)"
+            f"File size ({file_size} bytes) exceeds maximum allowed size ({settings.MAX_FILE_SIZE} bytes)"
         )
 
 
@@ -163,7 +159,7 @@ def validate_and_save_file(file_storage, course_id, request_id):
     # Check extension
     if not allowed_file(safe_filename):
         raise FileValidationError(
-            f"File extension not allowed. Allowed extensions: {', '.join(ALLOWED_EXTENSIONS)}"
+            f"File extension not allowed. Allowed extensions: {', '.join(settings.ALLOWED_EXTENSIONS)}"
         )
 
     # Validate file size

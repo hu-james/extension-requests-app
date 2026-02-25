@@ -13,7 +13,7 @@ from lti13_service import LTI13Service
 
 app = Flask(__name__)
 app.secret_key = settings.secret_key
-app.config.from_object(settings.configClass)
+app.config['DEBUG'] = True 
 app.config['SQLALCHEMY_DATABASE_URI'] = settings.SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = settings.SQLALCHEMY_TRACK_MODIFICATIONS
 app.config['MAX_CONTENT_LENGTH'] = settings.MAX_CONTENT_LENGTH
@@ -110,12 +110,7 @@ def lti_launch():
         lti_claims = lti_service.handle_launch()
 
         # Determine user role
-        instructor_roles = [
-            'http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor',
-            'http://purl.imsglobal.org/vocab/lis/v2/membership#ContentDeveloper',
-            'http://purl.imsglobal.org/vocab/lis/v2/institution/person#Administrator'
-        ]
-        role = 'instructor' if any(r in lti_claims['roles'] for r in instructor_roles) else 'student'
+        role = 'instructor' if any(r in lti_claims['roles'] for r in settings.INSTRUCTOR_ROLES) else 'student'
 
         # Get course ID (prefer canvas_course_id from custom params, fall back to context ID)
         course_id = session.get('canvas_course_id') or session.get('lti_context_id') or '12345'
@@ -319,4 +314,4 @@ def internal_error(error):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(host='0.0.0.0', port=5001, debug=True)
