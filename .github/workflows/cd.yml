@@ -1,0 +1,20 @@
+name: CD Pipeline
+
+on:
+    workflow_run:
+        workflows: ["CI build"]
+        types:
+            - completed
+
+jobs:
+    build:
+        runs-on: self-hosted
+        steps:
+            - name: Pull docker image from docker hub
+              run: sudo docker pull ${{ vars.DOCKER_USERNAME }}/my-image:latest # docker pull chriscardenas/my-image:latest
+
+            - name: Stop and remove old container, then run new container with latest image
+              run: docker rm -f cicd-pipeline-conatainer || true
+
+            - name: RUn new docker dontainer
+              run: docker run -d -p 8080:8080. --name cicd-pipeline-container ${{ vars.DOCKER_USERNAME }}/my-image:latest
