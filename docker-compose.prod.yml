@@ -1,0 +1,63 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    # No ports: block — postgres is internal only in production
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      target: production
+    restart: always
+    environment:
+      FLASK_ENV: production
+      SECRET_FLASK: ${SECRET_FLASK}
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      CANVAS_API_URL: ${CANVAS_API_URL}
+      CANVAS_API_TOKEN: ${CANVAS_API_TOKEN}
+      LTI_CLIENT_ID: ${LTI_CLIENT_ID}
+      LTI_ISSUER: ${LTI_ISSUER}
+      LTI_AUTH_LOGIN_URL: ${LTI_AUTH_LOGIN_URL}
+      LTI_AUTH_TOKEN_URL: ${LTI_AUTH_TOKEN_URL}
+      LTI_KEY_SET_URL: ${LTI_KEY_SET_URL}
+      LTI_TOOL_ID: ${LTI_TOOL_ID}
+      LTI_DEPLOYMENT_ID: ${LTI_DEPLOYMENT_ID}
+      TOOL_BASE_URL: ${TOOL_BASE_URL}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+    ports:
+      - "8000:8000"
+    volumes:
+      # Named volumes only — no bind mounts in production
+      - uploads_data:/app/uploads
+      - lti_keys:/app/keys
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app_network
+
+volumes:
+  postgres_data:
+  uploads_data:
+  lti_keys:
+
+networks:
+  app_network:
+    driver: bridge

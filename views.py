@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, session, request, Response, jsonify, redirect
+from flask import Flask, render_template, session, request, Response, jsonify, redirect, send_from_directory
 from flask_migrate import Migrate
 from flask_cors import CORS
 import settings
@@ -13,7 +13,7 @@ from lti13_service import LTI13Service
 
 app = Flask(__name__)
 app.secret_key = settings.secret_key
-app.config.from_object(settings.configClass)
+app.config['DEBUG'] = os.environ.get('FLASK_ENV') != 'production'
 app.config['SQLALCHEMY_DATABASE_URI'] = settings.SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = settings.SQLALCHEMY_TRACK_MODIFICATIONS
 app.config['MAX_CONTENT_LENGTH'] = settings.MAX_CONTENT_LENGTH
@@ -32,9 +32,10 @@ app.config['SESSION_COOKIE_DOMAIN'] = None
 app.config['PERMANENT_SESSION_LIFETIME'] = 1800  # 30 minutes
 
 
+_allowed_origins = [o.strip() for o in os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3008').split(',')]
 CORS(app, resources={
     r"/api/*": {
-        "origins": ["http://192.168.42.42:3008", "http://localhost:3008"],
+        "origins": _allowed_origins,
         "supports_credentials": True,
         "allow_headers": ["Content-Type", "Authorization", "X-Session-Token"],
         "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
@@ -42,7 +43,7 @@ CORS(app, resources={
 })
 
 # Production configuration
-if os.environ.get('DYNO'):  # heroku environment
+if os.environ.get('DYNO') or os.environ.get('FLASK_ENV') == 'production':
     app.config['DEBUG'] = False
     app.config['TESTING'] = False
 
@@ -65,11 +66,15 @@ init_extension_routes(app)
 # Logging
 
 formatter = logging.Formatter(settings.LOG_FORMAT)
-handler = RotatingFileHandler(
-    settings.LOG_FILE,
-    maxBytes=settings.LOG_MAX_BYTES,
-    backupCount=settings.LOG_BACKUP_COUNT
-)
+if os.environ.get('FLASK_ENV') == 'production':
+    import sys
+    handler = logging.StreamHandler(sys.stdout)
+else:
+    handler = RotatingFileHandler(
+        settings.LOG_FILE,
+        maxBytes=settings.LOG_MAX_BYTES,
+        backupCount=settings.LOG_BACKUP_COUNT
+    )
 handler.setLevel(logging.getLevelName(settings.LOG_LEVEL))
 handler.setFormatter(formatter)
 app.logger.addHandler(handler)
@@ -110,12 +115,7 @@ def lti_launch():
         lti_claims = lti_service.handle_launch()
 
         # Determine user role
-        instructor_roles = [
-            'http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor',
-            'http://purl.imsglobal.org/vocab/lis/v2/membership#ContentDeveloper',
-            'http://purl.imsglobal.org/vocab/lis/v2/institution/person#Administrator'
-        ]
-        role = 'instructor' if any(r in lti_claims['roles'] for r in instructor_roles) else 'student'
+        role = 'instructor' if any(r in lti_claims['roles'] for r in settings.INSTRUCTOR_ROLES) else 'student'
 
         # Get course ID (prefer canvas_course_id from custom params, fall back to context ID)
         course_id = session.get('canvas_course_id') or session.get('lti_context_id') or '12345'
@@ -277,32 +277,31 @@ def index():
 @app.route('/client/')
 @app.route('/client/<path:path>')
 def serve_client(path=''):
-    """Proxy the React client application from Vite dev server"""
-    import requests
+    if os.environ.get('FLASK_ENV') == 'production':
+        dist_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'client', 'dist')
+        target = os.path.join(dist_dir, path) if path else None
+        if path and os.path.isfile(target):
+            return send_from_directory(dist_dir, path)
+        return send_from_directory(dist_dir, 'index.html')
+    else:
+        import requests
 
-    # Preserve query parameters
-    query_string = request.query_string.decode('utf-8')
-    vite_url = f'http://localhost:3008/client/{path}'
-    if query_string:
-        vite_url += f'?{query_string}'
+        query_string = request.query_string.decode('utf-8')
+        vite_url = f'http://localhost:3008/client/{path}'
+        if query_string:
+            vite_url += f'?{query_string}'
 
-    try:
-        # Forward the request to Vite dev server
-        resp = requests.get(vite_url, stream=True)
-
-        # Create response with same content
-        response = Response(resp.content, status=resp.status_code)
-
-        # Copy relevant headers (except ones that might cause issues)
-        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
-        for key, value in resp.headers.items():
-            if key.lower() not in excluded_headers:
-                response.headers[key] = value
-
-        return response
-    except Exception as e:
-        app.logger.error(f"Error proxying to Vite dev server: {e}")
-        return jsonify({'error': 'Failed to load client application'}), 500
+        try:
+            resp = requests.get(vite_url, stream=True)
+            response = Response(resp.content, status=resp.status_code)
+            excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+            for key, value in resp.headers.items():
+                if key.lower() not in excluded_headers:
+                    response.headers[key] = value
+            return response
+        except Exception as e:
+            app.logger.error(f"Error proxying to Vite dev server: {e}")
+            return jsonify({'error': 'Failed to load client application'}), 500
 
 
 # Error Handlers
@@ -319,4 +318,4 @@ def internal_error(error):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(host='0.0.0.0', port=5001, debug=True)

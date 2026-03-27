@@ -1,296 +1,281 @@
-# Extension Manager App 
-This is a Canvas-integrated LTI app that automates assignment extension requests.  
+# Assignment Extension Manager
+
+A Canvas LTI 1.3 app that streamlines assignment extension requests. Students submit requests with supporting documentation; instructors review, approve, or deny them from a centralized dashboard. Approved extensions are automatically applied in Canvas via assignment overrides.
+
+**Stack:** Flask + PostgreSQL (backend), React + Vite + TailwindCSS (frontend), Docker
+
+---
 
 ## Prerequisites
 
-### Required Software
-- Docker and Docker Compose
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - Git
-- Python 3.9+
-- Node.js 18+ and npm
-- PostgreSQL 14+
-
-### Canvas Docker Instance
-- Canvas running at `http://canvas.docker` (or another URL)
-- Admin access to Canvas
-- Canvas Docker container accessible from host machine
 
 ---
 
-## Step 1: Clone the Repository
+## Local Development Setup
+
+### 1. Clone the repository
 
 ```bash
-git clone 
-cd auto-extend
+git clone https://github.com/hu-james/extension-requests-app.git
+cd extension-requests-app
+git checkout docker
 ```
+
+### 2. Create your `.env` file
+
+```bash
+cp .env.template .env
+```
+
+Open `.env` and fill in the minimum required values to start the app:
+
+```bash
+SECRET_FLASK=any-random-string-here   # generate with: python -c "import os; print(os.urandom(24).hex())"
+DB_USER=postgres
+DB_PASSWORD=devpassword
+DB_NAME=extension_app
+```
+
+Canvas and LTI values can be left as placeholders until you connect to Canvas (see below).
+
+### 3. Start the stack
+
+```bash
+docker compose up --build
+```
+
+**What starts:**
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| Backend | http://localhost:5001 | Flask dev server with hot reload |
+| Frontend | http://localhost:3008 | Vite dev server with HMR |
+| Postgres | localhost:5432 (internal) | Not exposed to the network |
+
+**Verify it's working:**
+- http://localhost:5001/lti.json — should return LTI config JSON
+- http://localhost:3008 — should load the React app
+
+### Day-to-day commands
+
+| Task | Command |
+|------|---------|
+| Start | `docker compose up` |
+| Stop | `Ctrl+C`, then `docker compose down` |
+| View backend logs | `docker compose logs -f backend` |
+| Open a Postgres shell | `docker compose exec postgres psql -U postgres -d extension_app` |
 
 ---
 
-## Step 2: Set Up PostgreSQL Database
+## Connecting to Canvas
 
-### Start PostgreSQL 
+The app supports two Canvas setups:
 
-**macOS (Homebrew):**
-```bash
-brew services start postgresql@14
-```
+### Option A: Canvas Docker (Local Testing)
 
+Use this if you are running [canvas-docker](https://github.com/instructure/canvas-docker) locally.
 
-### Create Database
+Update your `.env` with these values:
 
 ```bash
-createdb auto_extend_local
-```
-
----
-
-## Step 3: Configure Environment Variables
-
-### Create .env file
-
-Copy the .env.template file and fill in values. 
-
-```bash
-# Canvas Docker Configuration
+# Canvas Docker URLs
 CANVAS_API_URL=http://canvas.docker
-CANVAS_API_TOKEN=YOUR_CANVAS_API_TOKEN_HERE
-
-# LTI 1.3 Configuration
 LTI_ISSUER=http://canvas.docker
 LTI_AUTH_LOGIN_URL=http://canvas.docker/api/lti/authorize_redirect
 LTI_AUTH_TOKEN_URL=http://canvas.docker/login/oauth2/token
 LTI_KEY_SET_URL=http://canvas.docker/api/lti/security/jwks
 
-# LTI Tool Configuration (will be updated after Canvas setup)
-LTI_CLIENT_ID=TBD
-LTI_DEPLOYMENT_ID=1
-LTI_TOOL_ID=auto-extend-tool
+# Canvas API token (get from Canvas → Account → Settings → + New Access Token)
+CANVAS_API_TOKEN=your_canvas_api_token_here
 
-# Flask Secret Key
-SECRET_FLASK=YOUR_GENERATED_SECRET_KEY
-
-# PostgreSQL Database Configuration
-DB_USER=postgres
-DB_PASSWORD=postgres
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=auto_extend_local
-
-# File Upload Configuration
-UPLOAD_FOLDER=uploads
+# Your host machine's LAN IP — Canvas Docker cannot resolve "localhost"
+# Find it with: ifconfig | grep "inet " | grep -v 127.0.0.1   (macOS/Linux)
+TOOL_BASE_URL=http://192.168.x.x:5001
+ALLOWED_ORIGINS=http://localhost:3008
 ```
 
-### Get Canvas API Token
+### Option B: Real Canvas (Production)
 
-1. Log into Canvas at `http://canvas.docker` as admin
-2. Go to **Account → Settings → Approved Integrations**
-3. Click **"+ New Access Token"**
-4. Give it a name (e.g., "Auto Extend Dev")
-5. Click **Generate Token**
-6. Copy the token and update `CANVAS_API_TOKEN` in `.env`
+Use this when deploying to a server (EC2, etc.) connected to an institution's Canvas or canvas.instructure.com.
+
+> **HTTPS required.** Canvas LTI 1.3 requires your tool to be served over HTTPS. You need a domain name and an SSL certificate (e.g., via Let's Encrypt + Nginx) before Canvas will accept your LTI registration.
+
+Update your `.env`:
+
+```bash
+# Real Canvas URLs (replace with your institution's Canvas URL if not instructure.com)
+CANVAS_API_URL=https://canvas.instructure.com
+LTI_ISSUER=https://canvas.instructure.com
+LTI_AUTH_LOGIN_URL=https://canvas.instructure.com/api/lti/authorize_redirect
+LTI_AUTH_TOKEN_URL=https://canvas.instructure.com/login/oauth2/token
+LTI_KEY_SET_URL=https://canvas.instructure.com/api/lti/security/jwks
+
+CANVAS_API_TOKEN=your_canvas_api_token_here
+
+# Your server's public domain
+TOOL_BASE_URL=https://your-domain.com
+ALLOWED_ORIGINS=https://your-domain.com
+```
+
+Use `docker-compose.prod.yml` for production (see [Production Deployment](#production-deployment-ec2)).
 
 ---
 
-## Step 4: Install Python Dependencies
+## LTI Registration in Canvas
 
-```bash
-# Install Python packages
-pip install -r requirements.txt
-```
+These steps are the same for both Canvas Docker and real Canvas. Complete them after starting the app.
 
----
+### Step 1 — Register the Developer Key
 
-## Step 5: Initialize the Database
-
-```bash
-# Set Flask app
-export FLASK_APP=views.py
-
-# Run migrations
-flask db upgrade
-```
-
----
-
-## Step 6: Build the React Frontend
-
-The React frontend needs to be built so Flask can serve it:
-
-```bash
-cd client
-
-# Install Node dependencies
-npm install
-
-# Build for production (outputs to ../static/)
-npm run build
-
-# Return to root directory
-cd ..
-```
----
-
-## Step 7: Find Your Host Machine IP
-
-Canvas Docker needs to access your Flask app. Find your local IP address:
-
-**macOS/Linux:**
-```bash
-# Get your local network IP
-ifconfig | grep "inet " | grep -v 127.0.0.1
-
-```
-
-**Or use:**
-```bash
-hostname -I  # Linux
-ipconfig getifaddr en0  # macOS 
-```
-
-Use this IP (e.g., `192.168.42.42`) instead of `localhost` in all Canvas configurations, since Canvas Docker can't resolve `localhost` to your host machine.
-
----
-
-## Step 8: Start the Flask Application
-
-```bash
-# Start Flask on port 5001, accessible from network
-python app.py
-```
-
-The server will run at:
-- **Local:** `http://localhost:5001`
-- **Network (for Canvas):** `http://192.168.42.42:5001` (use your actual IP)
-
----
-
-## Step 9: Configure LTI 1.3 in Canvas
-
-### Option A: Automatic Configuration (Recommended)
-
-1. Log into Canvas at `http://canvas.docker` as admin
+1. Log into Canvas as an admin
 2. Go to **Admin → Developer Keys**
-3. Click **"+ Developer Key" → "+ LTI Key"**
-4. Choose **"Paste JSON"** method
-5. Paste lti.json file into textbox. Note that you may need to change the URLs at the bottom of the json file. 
-4. Click **"Save"**
-5. Turn the key **"ON"**
-6. **Copy the Client ID**
----
+3. Click **+ Developer Key → + LTI Key**
+4. Select **"Paste JSON"** as the configuration method
+5. Fetch the LTI config from your running app and paste it in:
+   ```
+   http://YOUR_TOOL_BASE_URL/lti.json
+   ```
+6. Click **Save**
+7. Toggle the key **ON**
+8. **Copy the numeric Client ID** shown in the key list (e.g., `10000000000003`)
 
-## Step 10: Update Configuration with Client ID
-
-Add the Canvas Client ID to your `.env` file:
+### Step 2 — Update `.env` with the Client ID
 
 ```bash
 LTI_CLIENT_ID=10000000000003
 ```
 
-### Restart Flask
+Then restart the backend so it picks up the new value:
 
 ```bash
-# Stop the current Flask server (Ctrl+C)
-# Restart it
-python app.py
+docker compose restart backend
+```
+
+### Step 3 — Install the tool in a course
+
+1. Go to a Canvas course
+2. Navigate to **Settings → Apps**
+3. Click **+ App**
+4. Configuration Type: **By Client ID**
+5. Enter the Client ID from Step 1
+6. Click **Submit**
+
+The tool will now appear in the course navigation as "Assignment Extensions".
+
+### Step 4 — Test the launch
+
+Click "Assignment Extensions" in the course navigation. The LTI launch flow will run and the React app should load with the correct student or instructor interface based on your Canvas role.
+
+---
+
+## Production Deployment (EC2)
+
+Use `docker-compose.prod.yml` for production. This runs gunicorn instead of Flask's dev server and serves the React app as static files — no separate frontend container.
+
+### On the EC2 instance
+
+```bash
+# Install Docker
+sudo yum install -y docker
+sudo systemctl start docker && sudo systemctl enable docker
+sudo usermod -aG docker $USER && newgrp docker
+
+# Update Docker buildx plugin (required on Amazon Linux 2023)
+BUILDX_VERSION=$(curl -s https://api.github.com/repos/docker/buildx/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+mkdir -p ~/.docker/cli-plugins
+curl -Lo ~/.docker/cli-plugins/docker-buildx \
+  "https://github.com/docker/buildx/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-amd64"
+chmod +x ~/.docker/cli-plugins/docker-buildx
+
+# Clone and configure
+git clone https://github.com/hu-james/extension-requests-app.git
+cd extension-requests-app
+git checkout docker
+cp .env.template .env
+nano .env   # fill in all production values
+
+# Start in production mode
+docker compose -f docker-compose.prod.yml up --build -d
+```
+
+**View logs:**
+```bash
+docker compose -f docker-compose.prod.yml logs -f backend
 ```
 
 ---
 
-## Step 11: Install the Tool in a Canvas Course
+## Environment Variables Reference
 
-1. Go to any course in Canvas
-2. Navigate to **Settings → Apps**
-3. Click **"+ App"**
-4. Configuration Type: **"By Client ID"**
-5. Enter the **Client ID** 
-6. Click **"Submit"**
-
-The tool should now appear in your course navigation as "Extension Manager".
-
----
-
-## Step 12: Test the Integration
-
-1. Click **"Extension Manager"** in the course navigation
-2. Canvas will launch the LTI tool
-3. The React app should load from Flask
-4. You should see the student or instructor interface depending on your role
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `SECRET_FLASK` | Flask session signing key | Always |
+| `DB_USER` | Postgres username | Always |
+| `DB_PASSWORD` | Postgres password | Always |
+| `DB_NAME` | Postgres database name | Always |
+| `DB_HOST` | Set automatically by Docker Compose to `postgres` | Auto |
+| `CANVAS_API_URL` | Base URL of your Canvas instance | Canvas integration |
+| `CANVAS_API_TOKEN` | Canvas API personal access token | Canvas integration |
+| `LTI_CLIENT_ID` | Client ID from Canvas Developer Key registration | LTI launch |
+| `LTI_ISSUER` | Canvas instance URL (used in JWT validation) | LTI launch |
+| `LTI_AUTH_LOGIN_URL` | Canvas OIDC login URL | LTI launch |
+| `LTI_AUTH_TOKEN_URL` | Canvas token URL | LTI launch |
+| `LTI_KEY_SET_URL` | Canvas public JWKS URL | LTI launch |
+| `LTI_DEPLOYMENT_ID` | Deployment ID (default: `1`) | LTI launch |
+| `TOOL_BASE_URL` | Public URL of this app | LTI launch |
+| `ALLOWED_ORIGINS` | Comma-separated CORS origins | Always |
 
 ---
 
 ## Troubleshooting
 
-### Issue: Canvas can't reach Flask app (404 errors)
+### `LTI launch failed: audience doesn't match`
 
-**Solution:**
-- Verify Flask is running: `curl http://localhost:5001/lti/jwks`
-- Test from Canvas network perspective:
-  ```bash
-  docker exec -it CANVAS_CONTAINER_NAME curl http://host.docker.internal:5001/lti/jwks
-  ```
-- Make sure you're using your host IP, not `localhost`
-- Check firewall settings
+The `LTI_CLIENT_ID` in your `.env` doesn't match the Developer Key registered in Canvas. Each Canvas instance assigns its own numeric client_id.
 
-
-
-### Issue: Database connection errors
-
-**Solution:**
+**Fix:** Go to Canvas Admin → Developer Keys, copy the numeric ID next to your key, update `LTI_CLIENT_ID` in `.env`, then restart:
 ```bash
-# Verify PostgreSQL is running
-pg_isready
-
-# Check database exists
-psql -l | grep auto_extend_local
-
-# Recreate if needed
-dropdb auto_extend_local
-createdb auto_extend_local
-flask db upgrade
+docker compose restart backend
 ```
-
-### Issue: LTI launch fails with JWT errors
-
-**Solution:**
-- Verify `LTI_CLIENT_ID` in `.env` matches Canvas Developer Key
-- Check Canvas can access JWKs endpoint: `http://YOUR_IP:5001/lti/jwks`
-- Review Flask logs in `error.log`
-
 
 ---
 
-## Quick Reference
+### Canvas can't reach the Flask app (404 / connection refused)
 
-### Start Everything
+You are using `localhost` or `127.0.0.1` in `TOOL_BASE_URL`. Canvas Docker runs in its own container and cannot resolve these to your host machine.
+
+**Fix:** Use your host machine's LAN IP address in `TOOL_BASE_URL`:
 ```bash
-# Terminal 1: Start Flask
-python app.py
-
-# Terminal 2 (optional): React dev server
-cd client && npm run dev
+# Find your LAN IP
+ifconfig | grep "inet " | grep -v 127.0.0.1   # macOS/Linux
 ```
-
-### Rebuild Frontend
-```bash
-cd client && npm run build && cd ..
-```
-
-### Reset Database
-```bash
-dropdb auto_extend_local && createdb auto_extend_local
-flask db upgrade
-```
-
-### View Logs
-```bash
-tail -f error.log
-```
-
-### Key URLs
-- **Flask App:** http://localhost:5001
-- **LTI Config:** http://YOUR_IP:5001/lti.json
-- **JWKs:** http://YOUR_IP:5001/lti/jwks
-- **Launch:** http://YOUR_IP:5001/lti/launch
-- **Canvas:** http://canvas.docker
 
 ---
+
+### `compose build requires buildx 0.17.0 or later`
+
+Your Docker buildx plugin is outdated.
+
+**Fix (Amazon Linux 2023 / Linux):**
+```bash
+BUILDX_VERSION=$(curl -s https://api.github.com/repos/docker/buildx/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+mkdir -p ~/.docker/cli-plugins
+curl -Lo ~/.docker/cli-plugins/docker-buildx \
+  "https://github.com/docker/buildx/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-amd64"
+chmod +x ~/.docker/cli-plugins/docker-buildx
+docker buildx version   # verify
+```
+
+---
+
+### Database connection errors on startup
+
+The DB credentials in `.env` don't match what Postgres was initialized with, or Postgres hasn't finished starting yet.
+
+**Fix:** Check that `DB_USER`, `DB_PASSWORD`, and `DB_NAME` in `.env` match across both the `postgres` and `backend` services. If you changed credentials after the volume was created, reset the volume:
+```bash
+docker compose down -v   # WARNING: deletes all data
+docker compose up --build
+```

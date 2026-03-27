@@ -1,0 +1,45 @@
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.venv/
+*.egg-info/
+
+# Environment and secrets 
+.env
+.env.*
+!.env.example
+
+# Git and editor
+.git/
+.gitignore
+.vscode/
+.idea/
+*.swp
+
+# Docs and local Claude context
+*.md
+.claude/
+
+# Local runtime state
+error.log
+instance/
+*.db
+*.sqlite
+
+# Frontend
+client/node_modules/
+client/dist/
+
+# Stray root-level npm artifacts
+node_modules/
+/package.json
+/package-lock.json
+
+# Keys and uploads 
+keys/
+uploads/
+
+# Tests
+client/src/__tests__/

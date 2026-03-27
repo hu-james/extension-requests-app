@@ -10,18 +10,7 @@ load_dotenv()
 # os.environ.get("ENVIRONMENT_KEY", "LOCAL_VALUE")
 # This makes it a bit easier to use one file for local and environment deployment.
 
-# LTI 1.3 Configuration
-LTI_TOOL_ID = os.environ.get("LTI_TOOL_ID", "auto-extend-tool")
-LTI_DEPLOYMENT_ID = os.environ.get("LTI_DEPLOYMENT_ID", "1")
-LTI_CLIENT_ID = os.environ.get("LTI_CLIENT_ID", "auto-extend-client")
-
-# Canvas Platform Configuration for LTI 1.3
-LTI_ISSUER = os.environ.get("LTI_ISSUER", "https://canvas.instructure.com")
-LTI_AUTH_LOGIN_URL = os.environ.get("LTI_AUTH_LOGIN_URL", "https://canvas.instructure.com/api/lti/authorize_redirect")
-LTI_AUTH_TOKEN_URL = os.environ.get("LTI_AUTH_TOKEN_URL", "https://canvas.instructure.com/login/oauth2/token")
-LTI_KEY_SET_URL = os.environ.get("LTI_KEY_SET_URL", "https://canvas.instructure.com/api/lti/security/jwks")
-
-# Secret key used for Flask sessions, etc. Must stay named 'secret_key'.
+# Secret key used for Flask sessions, etc.
 # Can be any randomized string, recommend generating one with os.urandom(24)
 secret_key = os.environ.get("SECRET_FLASK")
 
@@ -31,10 +20,6 @@ LOG_FORMAT = '%(asctime)s [%(levelname)s] {%(filename)s:%(lineno)d} %(message)s'
 LOG_LEVEL = 'DEBUG'
 LOG_MAX_BYTES = 1024 * 1024 * 5  # 5 MB
 LOG_BACKUP_COUNT = 1
-
-# Config object settings
-# See config.py other environments and options
-configClass = 'config.DevelopmentConfig'
 
 # Canvas API Configuration
 CANVAS_API_URL = os.environ.get('CANVAS_API_URL', '')
@@ -66,3 +51,10 @@ MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'True').lower() == 'true'
 MAIL_USERNAME = os.environ.get('MAIL_USERNAME', '')
 MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', '')
 MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', MAIL_USERNAME)
+
+
+INSTRUCTOR_ROLES = [
+    'http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor',
+    'http://purl.imsglobal.org/vocab/lis/v2/membership#ContentDeveloper',
+    'http://purl.imsglobal.org/vocab/lis/v2/institution/person#Administrator',
+]

@@ -1,12 +1,15 @@
 # Flask
 *.pyc
+__pycache__/
 venv/
 error.log
-*.DS_STORE
+*.log
 test.db
 
 # Environment variables
 .env
+.env.local
+.env.*.local
 
 # Cryptographic keys and certificates
 keys/
@@ -15,3 +18,19 @@ keys/
 *.p12
 *.pfx
 
+# Node
+node_modules/
+dist/
+
+/package.json
+/package-lock.json
+
+# macOS
+.DS_Store
+*.DS_Store
+
+# Uploads (local file storage, not for version control)
+uploads/
+
+# Claude AI assistant context file
+CLAUDE.md
