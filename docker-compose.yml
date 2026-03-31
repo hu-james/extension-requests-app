@@ -1,96 +1,97 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-devpassword}
-      POSTGRES_DB: ${DB_NAME:-extension_app}
-    ports:
-      # Bound to localhost only — not accessible from other machines on the network
-      - "127.0.0.1:5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - app_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+    postgres:
+        image: postgres:16-alpine
+        restart: unless-stopped
+        environment:
+            POSTGRES_USER: ${DB_USER:-postgres}
+            POSTGRES_PASSWORD: ${DB_PASSWORD:-devpassword}
+            POSTGRES_DB: ${DB_NAME:-extension_app}
+        ports:
+            # Bound to localhost only — not accessible from other machines on the network
+            - "127.0.0.1:5432:5432"
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        networks:
+            - app_network
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+            interval: 5s
+            timeout: 5s
+            retries: 10
 
-  backend:
-    build:
-      context: .
-      target: development
-    # Overrides the Dockerfile CMD: runs migrations and key gen before Flask dev server
-    command: >
-      sh -c "
-        python -m flask --app views.py db upgrade &&
-        python -c 'from lti13_config import LTI13Config; import os; LTI13Config.generate_key_pair() if not os.path.exists(LTI13Config.PRIVATE_KEY_PATH) else None' &&
-        python -m flask --app views.py run --host=0.0.0.0 --port=5001 --debug
-      "
-    environment:
-      FLASK_ENV: development
-      FLASK_DEBUG: "1"
-      SECRET_FLASK: ${SECRET_FLASK:-dev-secret-key-change-in-prod}
-      DB_HOST: postgres
-      DB_PORT: "5432"
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:-devpassword}
-      DB_NAME: ${DB_NAME:-extension_app}
-      CANVAS_API_URL: ${CANVAS_API_URL:-}
-      CANVAS_API_TOKEN: ${CANVAS_API_TOKEN:-}
-      LTI_CLIENT_ID: ${LTI_CLIENT_ID:-}
-      LTI_ISSUER: ${LTI_ISSUER:-https://canvas.instructure.com}
-      LTI_AUTH_LOGIN_URL: ${LTI_AUTH_LOGIN_URL:-}
-      LTI_AUTH_TOKEN_URL: ${LTI_AUTH_TOKEN_URL:-}
-      LTI_KEY_SET_URL: ${LTI_KEY_SET_URL:-}
-      LTI_TOOL_ID: ${LTI_TOOL_ID:-auto-extend-tool}
-      LTI_DEPLOYMENT_ID: ${LTI_DEPLOYMENT_ID:-1}
-      TOOL_BASE_URL: ${TOOL_BASE_URL:-http://localhost:5001}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3008}
-    ports:
-      - "5001:5001"
-    volumes:
-      # Bind mount: source code changes are reflected instantly (hot reload)
-      - .:/app
-      # Exclude the local venv/ dir from the bind mount — container uses /opt/venv
-      - /app/venv
-      # Named volumes for data that must survive container restarts
-      - uploads_data:/app/uploads
-      - lti_keys:/app/keys
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - app_network
+    backend:
+        image: ${BACKEND_IMAGE}
+        build:
+            context: .
+            target: development
+        # Overrides the Dockerfile CMD: runs migrations and key gen before Flask dev server
+        command: >
+            sh -c "
+              python -m flask --app views.py db upgrade &&
+              python -c 'from lti13_config import LTI13Config; import os; LTI13Config.generate_key_pair() if not os.path.exists(LTI13Config.PRIVATE_KEY_PATH) else None' &&
+              python -m flask --app views.py run --host=0.0.0.0 --port=5001 --debug
+            "
+        environment:
+            FLASK_ENV: development
+            FLASK_DEBUG: "1"
+            SECRET_FLASK: ${SECRET_FLASK:-dev-secret-key-change-in-prod}
+            DB_HOST: postgres
+            DB_PORT: "5432"
+            DB_USER: ${DB_USER:-postgres}
+            DB_PASSWORD: ${DB_PASSWORD:-devpassword}
+            DB_NAME: ${DB_NAME:-extension_app}
+            CANVAS_API_URL: ${CANVAS_API_URL:-}
+            CANVAS_API_TOKEN: ${CANVAS_API_TOKEN:-}
+            LTI_CLIENT_ID: ${LTI_CLIENT_ID:-}
+            LTI_ISSUER: ${LTI_ISSUER:-https://canvas.instructure.com}
+            LTI_AUTH_LOGIN_URL: ${LTI_AUTH_LOGIN_URL:-}
+            LTI_AUTH_TOKEN_URL: ${LTI_AUTH_TOKEN_URL:-}
+            LTI_KEY_SET_URL: ${LTI_KEY_SET_URL:-}
+            LTI_TOOL_ID: ${LTI_TOOL_ID:-auto-extend-tool}
+            LTI_DEPLOYMENT_ID: ${LTI_DEPLOYMENT_ID:-1}
+            TOOL_BASE_URL: ${TOOL_BASE_URL:-http://localhost:5001}
+            ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3008}
+        ports:
+            - "5001:5001"
+        volumes:
+            # Bind mount: source code changes are reflected instantly (hot reload)
+            - .:/app
+            # Exclude the local venv/ dir from the bind mount — container uses /opt/venv
+            - /app/venv
+            # Named volumes for data that must survive container restarts
+            - uploads_data:/app/uploads
+            - lti_keys:/app/keys
+        depends_on:
+            postgres:
+                condition: service_healthy
+        networks:
+            - app_network
 
-  frontend:
-    image: node:22-alpine
-    working_dir: /app/client
-    # npm install runs on every start in case package.json changed
-    command: sh -c "npm install && npm run dev"
-    environment:
-      # Points the Vite proxy at the backend container by its service name
-      VITE_API_URL: http://backend:5001
-    ports:
-      - "3008:3008"
-    volumes:
-      - ./client:/app/client
-      # Named volume keeps node_modules inside Docker — avoids host/container conflicts
-      - frontend_node_modules:/app/client/node_modules
-    depends_on:
-      - backend
-    networks:
-      - app_network
+    frontend:
+        image: node:22-alpine
+        working_dir: /app/client
+        # npm install runs on every start in case package.json changed
+        command: sh -c "npm install && npm run dev"
+        environment:
+            # Points the Vite proxy at the backend container by its service name
+            VITE_API_URL: http://backend:5001
+        ports:
+            - "3008:3008"
+        volumes:
+            - ./client:/app/client
+            # Named volume keeps node_modules inside Docker — avoids host/container conflicts
+            - frontend_node_modules:/app/client/node_modules
+        depends_on:
+            - backend
+        networks:
+            - app_network
 
 volumes:
-  postgres_data:
-  uploads_data:
-  lti_keys:
-  frontend_node_modules:
+    postgres_data:
+    uploads_data:
+    lti_keys:
+    frontend_node_modules:
 
 networks:
-  app_network:
-    driver: bridge
+    app_network:
+        driver: bridge
