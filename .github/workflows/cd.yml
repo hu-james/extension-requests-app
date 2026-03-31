@@ -5,6 +5,8 @@ on:
         workflows: ["CI_Pipeline"]
         types:
             - completed
+        branches:
+            - docker
 
 jobs:
     build:
