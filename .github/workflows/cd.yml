@@ -2,7 +2,7 @@ name: CD Pipeline
 
 on:
     workflow_run:
-        workflows: ["CI build"]
+        workflows: ["CI Pipeline"]
         types:
             - completed
 
@@ -10,11 +10,15 @@ jobs:
     build:
         runs-on: self-hosted
         steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+
             - name: Pull docker image from docker hub
-              run: sudo docker pull ${{ vars.DOCKER_USERNAME }}/my-image:latest # docker pull chriscardenas/my-image:latest
+              #   run: sudo docker pull ${{ vars.DOCKER_USERNAME }}/cicd-workflows-image:latest # docker pull chriscardenas/my-image:latest
+              run: sudo docker compose -f docker-compose.prod.yml pull
 
-            - name: Stop and remove old container, then run new container with latest image
-              run: docker rm -f cicd-pipeline-conatainer || true
+            - name: Build and run docker container
+              run: sudo docker compose -f docker-compose.prod.yml up -d --build
 
-            - name: RUn new docker dontainer
-              run: docker run -d -p 8080:8080. --name cicd-pipeline-container ${{ vars.DOCKER_USERNAME }}/my-image:latest
+            - name: SHow running containers
+              run: sudo docker compose -f docker-compose.prod.yml ps
