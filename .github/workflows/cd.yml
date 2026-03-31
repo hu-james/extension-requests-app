@@ -22,7 +22,7 @@ jobs:
                       git checkout docker
                       git pull origin docker
                       sudo docker compose -f docker-compose.prod.yml pull
-                      sudo docker compose -f docker-compose.prod.yml up -d --build
+                      sudo docker compose -f docker-compose.prod.yml up -d
                       sudo docker compose -f docker-compose.prod.yml ps
         # steps:
         #     - name: Checkout
