@@ -20,6 +20,14 @@ WORKDIR /build
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     && rm -rf /var/lib/apt/lists/*
+# for some reaon the above command now works after
+# RUN printf "deb http://ftp.us.debian.org/debian trixie main\n\ 
+# deb http://ftp.us.debian.org/debian trixie-updates main\n\
+# deb http://security.debian.org/debian-security trixie-security main\n" > /etc/apt/sources.list && \
+#     rm -rf /var/lib/apt/lists/* && \
+#     apt-get update && \
+#     apt-get install -y --no-install-recommends gcc
+# honestly not sure why the above works but the previous apt-get command doesn't, but it does.
 
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
