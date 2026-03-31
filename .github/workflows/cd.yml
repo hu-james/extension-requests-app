@@ -23,6 +23,6 @@ jobs:
                       git fetch --all
                       git checkout docker
                       git pull origin docker
-                      sudo docker compose pull
-                      sudo docker compose up -d
-                      sudo docker compose ps
+                      sudo docker-compose pull
+                      sudo docker-compose up -d
+                      sudo docker-compose ps
