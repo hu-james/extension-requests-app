@@ -13,12 +13,15 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v6
 
+            - name: Set deployed image tag from CI run
+              run: echo "BACKEND_IMAGE=${{ vars.DOCKER_USERNAME }}/extension-requests-app-backend:${{ github.event.workflow_run.head_sha }}" >> $GITHUB_ENV
+
             - name: Pull docker image from docker hub
               #   run: sudo docker pull ${{ vars.DOCKER_USERNAME }}/cicd-workflows-image:latest # docker pull chriscardenas/my-image:latest
               run: sudo docker compose -f docker-compose.prod.yml pull
 
-            - name: Build and run docker container
-              run: sudo docker compose -f docker-compose.prod.yml up -d --build
+            - name: NO Build and run docker container
+              run: sudo docker compose -f docker-compose.prod.yml up -d
 
             - name: SHow running containers
               run: sudo docker compose -f docker-compose.prod.yml ps
