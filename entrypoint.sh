@@ -41,7 +41,9 @@ echo "==> Starting gunicorn..."
 exec gunicorn \
     --bind 0.0.0.0:8000 \
     --workers 1 \
+    --worker-class gthread \
     --threads 4 \
+    --worker-tmp-dir /dev/shm \
     --timeout 120 \
     --access-logfile - \
     --error-logfile - \
