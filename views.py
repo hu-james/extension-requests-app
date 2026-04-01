@@ -211,8 +211,8 @@ def lti_jwks():
 def lti_json():
     """Returns the LTI 1.3 configuration JSON for Canvas integration"""
     try:
-        # Get the base URL from the request
-        base_url = request.url_root.rstrip('/')
+        # Use TOOL_BASE_URL env var 
+        base_url = os.environ.get('TOOL_BASE_URL', request.url_root.rstrip('/')).rstrip('/')
         
         config = {
             "title": "Assignment Extension Manager",
