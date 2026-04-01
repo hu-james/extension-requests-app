@@ -2,6 +2,7 @@ import os
 from flask import Flask, render_template, session, request, Response, jsonify, redirect, send_from_directory
 from flask_migrate import Migrate
 from flask_cors import CORS
+from werkzeug.middleware.proxy_fix import ProxyFix
 import settings
 import logging
 import json
@@ -12,6 +13,7 @@ from extension_views import init_extension_routes
 from lti13_service import LTI13Service
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.secret_key = settings.secret_key
 app.config['DEBUG'] = os.environ.get('FLASK_ENV') != 'production'
 app.config['SQLALCHEMY_DATABASE_URI'] = settings.SQLALCHEMY_DATABASE_URI
