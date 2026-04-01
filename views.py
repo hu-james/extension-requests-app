@@ -98,7 +98,7 @@ def return_error(msg):
 def lti_login():
     """Handle LTI 1.3 OIDC login initiation"""
     try:
-        app.logger.info("LTI 1.3 OIDC login initiated")
+        app.logger.info(f"LTI login - method: {request.method}, args: {dict(request.args)}, form: {dict(request.form)}")
         return lti_service.handle_oidc_login()
     except Exception as e:
         app.logger.error(f"LTI login error: {e}")
