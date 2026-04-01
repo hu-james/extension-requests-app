@@ -3,7 +3,7 @@ name: CI_Pipeline
 on:
     push:
         branches:
-            - docker
+            - main
     pull_request:
 
 jobs:

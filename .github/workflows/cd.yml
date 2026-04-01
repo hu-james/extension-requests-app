@@ -6,7 +6,7 @@ on:
         types:
             - completed
         branches:
-            - docker
+            - main
 
 jobs:
     build:
@@ -21,8 +21,8 @@ jobs:
                   script: |
                       cd /home/ec2-user/extension-requests-app
                       git fetch --all
-                      git checkout docker
-                      git pull origin docker
+                      git checkout main
+                      git pull origin main
                       docker compose -f docker-compose.prod.yml build --no-cache
                       docker compose -f docker-compose.prod.yml up -d
                       docker compose -f docker-compose.prod.yml ps

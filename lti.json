@@ -41,7 +41,7 @@
     "canvas_assignment_id": "$Canvas.assignment.id",
     "canvas_user_roles": "$Canvas.membership.roles"
   },
-  "public_jwk_url": "http://192.168.42.42:5001/lti/jwks",
-  "target_link_uri": "http://192.168.42.42:5001/lti/launch",
-  "oidc_initiation_url": "http://192.168.42.42:5001/lti/login"
+  "public_jwk_url": "https://auto-extend.com/lti/jwks",
+  "target_link_uri": "https://auto-extend.com/lti/launch",
+  "oidc_initiation_url": "https://auto-extend.com/lti/login"
 }
