@@ -39,21 +39,3 @@ jobs:
                   annotations: ${{ steps.meta.outputs.annotations }}
                   provenance: true
                   sbom: true
-
-# for later: add a step to SSH into the server and pull the new image, stop the old container, and start a new one with the updated image,
-#basically here we are goin got ssh into the amazon linux shell and runa .sh scrip that depoys any changes to the server, which includes pulling the latest image from Docker Hub and restarting the container with the new image. This way we can automate the deployment process and ensure that the latest changes are always reflected on the server without manual intervention.
-# - name: SSH and Deploy to Server
-#   if: github.event_name != 'pull_request'
-#   uses: appleboy/ssh-action@master
-#   with:
-#       host: ${{ secrets.SERVER_HOST }} # ec2 host
-#       username: ${{ secrets.SERVER_USER }} # ec2 user
-#       key: ${{ secrets.SERVER_SSH_KEY }} # private key for SSH
-#       script:
-#         cd
-#   script: |
-# docker pull ${{ vars.DOCKER_USERNAME }}/my-image:latest
-# docker stop my-container || true
-# docker rm my-container || true
-# docker run -d --name my-container -p 80:80 ${{ vars.DOCKER_USERNAME }}/my-image:latest
-
