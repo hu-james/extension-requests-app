@@ -53,7 +53,7 @@ FROM python-builder AS production
 WORKDIR /app
 
 RUN groupadd --gid 1001 appgroup && \
-    useradd --uid 1001 --gid appgroup --no-create-home appuser
+    useradd --uid 1001 --gid appgroup --no-create-home --home-dir /app appuser
 
 ENV PATH="/opt/venv/bin:$PATH"
 
