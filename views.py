@@ -117,8 +117,14 @@ def lti_launch():
         # Handle launch and get LTI claims
         lti_claims = lti_service.handle_launch()
 
-        # Determine user role
-        role = 'instructor' if any(r in lti_claims['roles'] for r in settings.INSTRUCTOR_ROLES) else 'student'
+        # Determine user role — course-level Learner takes priority over institution-level Admin
+        learner_role = 'http://purl.imsglobal.org/vocab/lis/v2/membership#Learner'
+        if learner_role in lti_claims['roles']:
+            role = 'student'
+        elif any(r in lti_claims['roles'] for r in settings.INSTRUCTOR_ROLES):
+            role = 'instructor'
+        else:
+            role = 'student'
 
         # Get course ID (prefer canvas_course_id from custom params, fall back to context ID)
         course_id = session.get('canvas_course_id') or session.get('lti_context_id') or '12345'
