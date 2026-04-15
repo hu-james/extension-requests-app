@@ -36,7 +36,15 @@ class LTI13Service:
             
             if not all([iss, login_hint, target_link_uri]):
                 raise ValueError("Missing required OIDC parameters")
-            
+
+            # Check if client_id is approved (falls back to .env value as always-approved)
+            effective_client_id = client_id or lti_config.LTI_CLIENT_ID
+            if effective_client_id != lti_config.LTI_CLIENT_ID:
+                from models import ApprovedClient
+                if not ApprovedClient.is_approved(effective_client_id):
+                    self.app.logger.warning(f"Rejected unapproved client_id: {effective_client_id}")
+                    raise ValueError(f"Client ID not approved. Contact the app administrator.")
+
             # Generate state and nonce
             state = str(uuid.uuid4())
             nonce = str(uuid.uuid4())
@@ -45,7 +53,8 @@ class LTI13Service:
             _state_storage[state] = {
                 'nonce': nonce,
                 'target_link_uri': target_link_uri,
-                'timestamp': time.time()
+                'timestamp': time.time(),
+                'client_id': client_id or lti_config.LTI_CLIENT_ID
             }
             
             # Also try to store in session as backup
@@ -90,20 +99,22 @@ class LTI13Service:
             stored_data = _state_storage.get(state)
             if stored_data:
                 current_time = time.time()
-                expired_states = [s for s, data in _state_storage.items() 
+                expired_states = [s for s, data in _state_storage.items()
                                 if current_time - data['timestamp'] > 1800]
                 for expired_state in expired_states:
                     del _state_storage[expired_state]
-                
+
                 nonce = stored_data['nonce']
+                client_id = stored_data.get('client_id', lti_config.LTI_CLIENT_ID)
                 del _state_storage[state]
             elif state == session.get('lti_state'):
                 nonce = session.get('lti_nonce')
+                client_id = lti_config.LTI_CLIENT_ID
             else:
                 raise ValueError("Invalid state parameter")
-            
+
             # Decode and validate JWT
-            claims = self.validate_jwt_token(id_token, nonce)
+            claims = self.validate_jwt_token(id_token, nonce, client_id)
             
             # Extract LTI claims
             lti_claims = self.extract_lti_claims(claims)
@@ -117,8 +128,9 @@ class LTI13Service:
             self.app.logger.error(f"Launch error: {e}")
             raise
     
-    def validate_jwt_token(self, id_token, expected_nonce):
+    def validate_jwt_token(self, id_token, expected_nonce, client_id=None):
         """Validate JWT token signature and claims"""
+        client_id = client_id or lti_config.LTI_CLIENT_ID
         try:
             # Decode header to get key ID
             header = jwt.get_unverified_header(id_token)
@@ -156,7 +168,7 @@ class LTI13Service:
                         id_token,
                         public_key,
                         algorithms=['RS256'],
-                        audience=lti_config.LTI_CLIENT_ID,
+                        audience=client_id,
                         issuer=allowed_issuer,
                         options={
                             'verify_signature': True,
