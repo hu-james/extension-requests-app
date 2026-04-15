@@ -24,4 +24,45 @@
 5. Under Configuration Type, select By Client ID
 6. Enter the copied Client ID. 
 7. Click Submit
-8. Click Install 
+8. Click Install
+
+---
+
+## AWS Admin: Approving a New Client ID
+
+After a Canvas admin sends you their Client ID and Canvas host URL, SSH into EC2 and run:
+
+```bash
+cd /home/ec2-user/extension-requests-app
+
+# Approve a new client ID
+docker compose -f docker-compose.prod.yml exec backend flask approve-client \
+  <CLIENT_ID> \
+  <CANVAS_HOST_URL> \
+  --org-name "Organization Name" \
+  --approved-by "your name"
+
+# Example
+docker compose -f docker-compose.prod.yml exec backend flask approve-client \
+  10000000000008 \
+  https://ufldev.instructure.com \
+  --org-name "University of Florida Dev" \
+  --approved-by "James Hu"
+```
+
+No restart required — the client ID is active immediately.
+
+### Other commands
+
+```bash
+# List all approved client IDs and their status
+docker compose -f docker-compose.prod.yml exec backend flask list-clients
+
+# Revoke a client ID (blocks future launches without deleting the record)
+docker compose -f docker-compose.prod.yml exec backend flask revoke-client <CLIENT_ID>
+```
+
+### Notes
+- The `LTI_CLIENT_ID` in `.env` is always approved — no need to add it via CLI.
+- Revoked client IDs can be reactivated by running `approve-client` again.
+- Run `list-clients` to audit who has access at any time. 

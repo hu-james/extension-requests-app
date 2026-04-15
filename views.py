@@ -1,4 +1,5 @@
 import os
+import click
 from flask import Flask, render_template, session, request, Response, jsonify, redirect, send_from_directory
 from flask_migrate import Migrate
 from flask_cors import CORS
@@ -317,6 +318,68 @@ def not_found(error):
 def internal_error(error):
     app.logger.error(f"Internal error: {error}")
     return return_error("Internal server error"), 500
+
+
+# ============================================
+# Admin CLI Commands
+# ============================================
+
+@app.cli.command('approve-client')
+@click.argument('client_id')
+@click.argument('issuer')
+@click.option('--org-name', default='', help='Organization name (e.g. University of Florida)')
+@click.option('--approved-by', default='admin', help='Name of person approving')
+def approve_client(client_id, issuer, org_name, approved_by):
+    """Approve a new LTI client ID for use with this tool."""
+    from models import ApprovedClient
+    existing = ApprovedClient.query.filter_by(client_id=client_id).first()
+    if existing:
+        if existing.is_active:
+            click.echo(f"Client ID {client_id} is already approved.")
+        else:
+            existing.is_active = True
+            existing.approved_by = approved_by
+            db.session.commit()
+            click.echo(f"Client ID {client_id} reactivated.")
+        return
+    record = ApprovedClient(
+        client_id=client_id,
+        issuer=issuer,
+        org_name=org_name,
+        approved_by=approved_by
+    )
+    db.session.add(record)
+    db.session.commit()
+    click.echo(f"Approved client ID {client_id} for {org_name or issuer}.")
+
+
+@app.cli.command('revoke-client')
+@click.argument('client_id')
+def revoke_client(client_id):
+    """Revoke an approved LTI client ID."""
+    from models import ApprovedClient
+    record = ApprovedClient.query.filter_by(client_id=client_id).first()
+    if not record:
+        click.echo(f"Client ID {client_id} not found.")
+        return
+    record.is_active = False
+    db.session.commit()
+    click.echo(f"Revoked client ID {client_id}.")
+
+
+@app.cli.command('list-clients')
+def list_clients():
+    """List all approved LTI client IDs."""
+    from models import ApprovedClient
+    records = ApprovedClient.query.order_by(ApprovedClient.approved_at).all()
+    if not records:
+        click.echo("No approved clients found.")
+        return
+    click.echo(f"{'CLIENT ID':<25} {'STATUS':<10} {'ORG':<30} {'ISSUER'}")
+    click.echo("-" * 90)
+    for r in records:
+        status = 'active' if r.is_active else 'revoked'
+        click.echo(f"{r.client_id:<25} {status:<10} {(r.org_name or ''):<30} {r.issuer}")
 
 
 if __name__ == '__main__':

@@ -70,6 +70,24 @@ class ExtensionPolicy(db.Model):
 
     course = db.relationship('Course', backref=db.backref('extension_policy', uselist=False))
 
+class ApprovedClient(db.Model):
+    """Approved LTI client IDs — one row per registered Canvas organization"""
+    __tablename__ = 'approved_clients'
+
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    issuer = db.Column(db.String(255), nullable=False)
+    org_name = db.Column(db.String(255))
+    approved_by = db.Column(db.String(255))
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    approved_at = db.Column(db.DateTime(timezone=True), default=utc_now)
+
+    @classmethod
+    def is_approved(cls, client_id):
+        """Check if a client ID is approved and active"""
+        record = cls.query.filter_by(client_id=client_id, is_active=True).first()
+        return record is not None
+
 class ExtensionRequest(db.Model):
     __tablename__ = 'extension_requests'
 

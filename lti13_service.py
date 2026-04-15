@@ -36,7 +36,15 @@ class LTI13Service:
             
             if not all([iss, login_hint, target_link_uri]):
                 raise ValueError("Missing required OIDC parameters")
-            
+
+            # Check if client_id is approved (falls back to .env value as always-approved)
+            effective_client_id = client_id or lti_config.LTI_CLIENT_ID
+            if effective_client_id != lti_config.LTI_CLIENT_ID:
+                from models import ApprovedClient
+                if not ApprovedClient.is_approved(effective_client_id):
+                    self.app.logger.warning(f"Rejected unapproved client_id: {effective_client_id}")
+                    raise ValueError(f"Client ID not approved. Contact the app administrator.")
+
             # Generate state and nonce
             state = str(uuid.uuid4())
             nonce = str(uuid.uuid4())
