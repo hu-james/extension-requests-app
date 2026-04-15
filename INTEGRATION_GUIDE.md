@@ -61,8 +61,3 @@ docker compose -f docker-compose.prod.yml exec backend flask list-clients
 # Revoke a client ID (blocks future launches without deleting the record)
 docker compose -f docker-compose.prod.yml exec backend flask revoke-client <CLIENT_ID>
 ```
-
-### Notes
-- The `LTI_CLIENT_ID` in `.env` is always approved — no need to add it via CLI.
-- Revoked client IDs can be reactivated by running `approve-client` again.
-- Run `list-clients` to audit who has access at any time. 
