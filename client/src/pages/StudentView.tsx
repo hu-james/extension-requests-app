@@ -9,7 +9,7 @@ const getDefaultDateTime = (date: Date): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}T23:59`; // 11:59 PM
+  return `${year}-${month}-${day}T23:59`;
 };
 
 export const StudentView: React.FC<{ courseId: number }> = ({ courseId }) => {
@@ -21,13 +21,16 @@ export const StudentView: React.FC<{ courseId: number }> = ({ courseId }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [announcementMessage, setAnnouncementMessage] = useState('');
+  const [formSubmitted, setFormSubmitted] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
 
-  // Auto-dismiss notification after 5 seconds and move focus
+  useEffect(() => {
+    document.title = 'Request Extension — Auto-Extend';
+  }, []);
+
   useEffect(() => {
     if (notification) {
-      // Move focus to notification for screen readers
       if (notificationRef.current) {
         notificationRef.current.focus();
       }
@@ -38,7 +41,6 @@ export const StudentView: React.FC<{ courseId: number }> = ({ courseId }) => {
     }
   }, [notification]);
 
-  // Keyboard support for closing notification with Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && notification) {
@@ -67,26 +69,22 @@ export const StudentView: React.FC<{ courseId: number }> = ({ courseId }) => {
     retry: false
   });
 
-
   const createRequestMutation = useMutation({
     mutationFn: (request: ExtensionRequestForm) =>
       extensionApi.createRequest(courseId, request),
     onSuccess: () => {
-      // Reset form
       setSelectedAssignments([]);
       setRequestedDates({});
       setReason('');
       setFiles([]);
-      // Clear the file input element
+      setFormSubmitted(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-      // Show success notification
       setNotification({
         type: 'success',
         message: 'Extension request submitted successfully!'
       });
-      // Scroll to top to see notification
       window.scrollTo({ top: 0, behavior: 'smooth' });
     },
     onError: (error: any) => {
@@ -95,13 +93,13 @@ export const StudentView: React.FC<{ courseId: number }> = ({ courseId }) => {
         type: 'error',
         message: errorMessage
       });
-      // Scroll to top to see notification
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setFormSubmitted(true);
     if (selectedAssignments.length === 0) {
       setNotification({ type: 'error', message: 'Please select at least one assignment' });
       return;
@@ -137,45 +135,37 @@ export const StudentView: React.FC<{ courseId: number }> = ({ courseId }) => {
 
   const toggleAssignmentSelection = (assignmentId: number, assignment: Assignment) => {
     if (selectedAssignments.includes(assignmentId)) {
-      // Remove assignment
       const newSelection = selectedAssignments.filter(id => id !== assignmentId);
       setSelectedAssignments(newSelection);
       const newDates = { ...requestedDates };
       delete newDates[assignmentId];
       setRequestedDates(newDates);
-      // Announce change to screen readers
       setAnnouncementMessage(`${assignment.title} removed. ${newSelection.length} of ${assignments.length} assignments selected.`);
     } else {
-      // Add assignment
       const newSelection = [...selectedAssignments, assignmentId];
       setSelectedAssignments(newSelection);
-      // Set default date to assignment's due date at 11:59 PM
       const dueDate = new Date(assignment.dueDate);
       setRequestedDates({
         ...requestedDates,
         [assignmentId]: getDefaultDateTime(dueDate)
       });
-      // Announce change to screen readers
       setAnnouncementMessage(`${assignment.title} added. ${newSelection.length} of ${assignments.length} assignments selected.`);
     }
   };
 
-  // Filter assignments based on search query
   const filteredAssignments = assignments.filter((assignment: Assignment) =>
     assignment.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Get assignment details by ID
   const getAssignmentById = (id: number) => assignments.find((a: Assignment) => a.id === id);
 
   return (
     <div className="p-4">
-      {/* Skip to main content link */}
+      {/* Skip link must be outside and before #main-content (2.4.1) */}
       <a href="#main-content" className="skip-to-main">
         Skip to main content
       </a>
 
-      {/* Screen reader announcements */}
       <div
         role="status"
         aria-live="polite"
@@ -216,7 +206,7 @@ export const StudentView: React.FC<{ courseId: number }> = ({ courseId }) => {
           <button
             onClick={() => setNotification(null)}
             aria-label="Close notification"
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-gray-600 hover:text-gray-800 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -260,9 +250,8 @@ export const StudentView: React.FC<{ courseId: number }> = ({ courseId }) => {
               </svg>
             </button>
 
-          {isAssignmentSelectorOpen && (
-            <div id="assignment-selector-panel" className="p-4 border-t">
-              {/* Search bar */}
+            {/* Panel always in DOM so aria-controls reference is always valid (4.1.2) */}
+            <div id="assignment-selector-panel" className="p-4 border-t" hidden={!isAssignmentSelectorOpen}>
               <div className="mb-3">
                 <label htmlFor="assignment-search" className="sr-only">
                   Search assignments
@@ -274,11 +263,10 @@ export const StudentView: React.FC<{ courseId: number }> = ({ courseId }) => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   aria-label="Search assignments by title"
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-500 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
-              {/* Assignment list */}
               <div className="max-h-80 overflow-y-auto space-y-2" role="group" aria-label="Available assignments">
                 {filteredAssignments.length === 0 ? (
                   <div className="text-center text-gray-500 py-4" role="status">
@@ -302,7 +290,7 @@ export const StudentView: React.FC<{ courseId: number }> = ({ courseId }) => {
                       className={`flex items-start space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
                         selectedAssignments.includes(assignment.id)
                           ? 'bg-blue-50 border-2 border-blue-500'
-                          : 'bg-white border-2 border-gray-200 hover:border-gray-300'
+                          : 'bg-white border-2 border-gray-500 hover:border-gray-600'
                       }`}
                     >
                       <input
@@ -328,7 +316,6 @@ export const StudentView: React.FC<{ courseId: number }> = ({ courseId }) => {
                 {selectedAssignments.length} of {assignments.length} assignments selected
               </div>
             </div>
-          )}
           </div>
 
           {/* Selected Assignments with Date Pickers */}
@@ -353,7 +340,7 @@ export const StudentView: React.FC<{ courseId: number }> = ({ courseId }) => {
                           type="button"
                           onClick={() => toggleAssignmentSelection(assignmentId, assignment)}
                           aria-label={`Remove ${assignment.title} from selection`}
-                          className="text-gray-400 hover:text-red-600 transition-colors"
+                          className="text-gray-600 hover:text-red-700 transition-colors"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -375,7 +362,7 @@ export const StudentView: React.FC<{ courseId: number }> = ({ courseId }) => {
                           })}
                           aria-required="true"
                           aria-describedby={`current-date-${assignmentId} date-help-${assignmentId}`}
-                          className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 border border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           required
                         />
                         <div id={`date-help-${assignmentId}`} className="text-xs text-gray-500 mt-1">
@@ -404,8 +391,8 @@ export const StudentView: React.FC<{ courseId: number }> = ({ courseId }) => {
               maxLength={10000}
               aria-required="true"
               aria-describedby="reason-char-count reason-help"
-              aria-invalid={reason.trim() === '' && reason.length > 0 ? 'true' : 'false'}
-              className={`w-full h-32 p-2 border rounded ${reason.length > 9500 ? 'border-yellow-500 border-2' : ''}`}
+              aria-invalid={formSubmitted && reason.trim() === '' ? 'true' : 'false'}
+              className={`w-full h-32 p-2 border rounded ${reason.length > 9500 ? 'border-yellow-500 border-2' : 'border-gray-500'}`}
               placeholder="Please provide a detailed reason for your extension request..."
             />
             <div id="reason-help" className="text-xs text-gray-600 mt-1">
@@ -449,16 +436,17 @@ export const StudentView: React.FC<{ courseId: number }> = ({ courseId }) => {
                   accept=".pdf,.docx,.jpg,.jpeg,.png"
                   aria-required="true"
                   aria-describedby="file-upload-help file-upload-status"
-                  className="p-2 border rounded w-full"
+                  className="p-2 border border-gray-500 rounded w-full"
                 />
                 <div id="file-upload-help" className="mt-2 text-xs text-gray-600">
                   Accepted formats: PDF, DOCX, JPG, JPEG, PNG. You can select multiple files.
                 </div>
-                {files.length > 0 && (
-                  <div id="file-upload-status" role="status" className="mt-2 text-sm text-gray-700 font-medium">
-                    {files.length} file(s) selected: {files.map(f => f.name).join(', ')}
-                  </div>
-                )}
+                {/* Always rendered so aria-describedby reference is always valid (4.1.2) */}
+                <div id="file-upload-status" role="status" className="mt-2 text-sm text-gray-700 font-medium">
+                  {files.length > 0
+                    ? `${files.length} file(s) selected: ${files.map(f => f.name).join(', ')}`
+                    : ''}
+                </div>
               </div>
             </fieldset>
           )}
@@ -505,9 +493,9 @@ export const StudentView: React.FC<{ courseId: number }> = ({ courseId }) => {
                 <div className="mt-2 flex items-center">
                   <span className="text-sm text-gray-700 mr-2">Status:</span>
                   <span className={`font-medium inline-flex items-center ${
-                    request.status === 'approved' ? 'text-green-600' :
+                    request.status === 'approved' ? 'text-green-700' :
                     request.status === 'denied' ? 'text-red-600' :
-                    'text-yellow-600'
+                    'text-yellow-800'
                   }`}>
                     {request.status === 'approved' && (
                       <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
