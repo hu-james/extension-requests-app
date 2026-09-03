@@ -5,7 +5,7 @@ Handles all API endpoints for extension requests
 import os
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 
 from flask import (
@@ -18,6 +18,7 @@ from models import (
     ExtensionRequest
 )
 from canvas_service import CanvasService
+from datetime_utils import parse_datetime_to_utc, timezone_from_name
 from file_security import validate_and_save_file, FileValidationError
 import settings
 
@@ -29,9 +30,6 @@ def check_valid_user(f):
     """Decorator to check if user is authenticated via LTI"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        from flask import current_app
-
-
         lti_authenticated = session.get('lti_authenticated', False)
         lti_user_id = session.get('lti_user_id')
 
@@ -196,6 +194,10 @@ def init_extension_routes(app):
                 }), 400
 
             canvas = get_canvas_service()
+            canvas_course = canvas.get_course(course_id)
+            course_timezone = timezone_from_name(
+                getattr(canvas_course, 'time_zone', None)
+            )
             requests_created = []
 
             for assignment_id in data['assignmentIds']:
@@ -203,51 +205,46 @@ def init_extension_routes(app):
                     # Get assignment from Canvas
                     assignment = canvas.get_assignment(course_id, assignment_id)
 
-                    # Parse requested due date
-                    # The frontend sends datetime-local format: "YYYY-MM-DDTHH:MM"
+                    # Current clients send an absolute ISO timestamp. Older
+                    # cached clients can send a timezone-less datetime-local
+                    # value, which must be interpreted in the course timezone.
                     requested_due_date_str = data['requestedDueDates'].get(assignment_id)
                     if not requested_due_date_str:
                         logger.warning(f"No requested due date for assignment {assignment_id}")
                         continue
 
-                    # Parse and add seconds if not present
-                    if 'T' in requested_due_date_str and len(requested_due_date_str.split('T')[1]) == 5:
-                        # Add seconds to match ISO format (HH:MM -> HH:MM:00)
-                        requested_due_date_str += ':00'
-
-                    requested_due_date = datetime.fromisoformat(
-                        requested_due_date_str.replace('Z', '+00:00')
+                    requested_due_date = parse_datetime_to_utc(
+                        requested_due_date_str,
+                        course_timezone,
                     )
 
-                    # Validate extension length
-                    # Handle both string and datetime objects from Canvas/Mock
+                    # Canvas normally supplies an explicit UTC offset. If a
+                    # mock or legacy response is naive, use the course timezone.
                     if isinstance(assignment.due_at, str):
-                        original_due_date = datetime.fromisoformat(
-                            assignment.due_at.replace('Z', '+00:00')
+                        original_due_date = parse_datetime_to_utc(
+                            assignment.due_at,
+                            course_timezone,
                         )
                     else:
                         original_due_date = assignment.due_at
+                        if original_due_date.tzinfo is None:
+                            original_due_date = original_due_date.replace(
+                                tzinfo=course_timezone
+                            )
+                        original_due_date = original_due_date.astimezone(timezone.utc)
 
-                    # For naive datetimes (no timezone), we treat them as "wall clock" time
-                    # This follows Canvas convention where "11:59 PM" means "11:59 PM" regardless of timezone
-                    # Only add timezone if BOTH are naive (to allow comparison)
-                    if original_due_date.tzinfo is None and requested_due_date.tzinfo is None:
-                        original_due_date = original_due_date.replace(tzinfo=timezone.utc)
-                        requested_due_date = requested_due_date.replace(tzinfo=timezone.utc)
-                    elif original_due_date.tzinfo is None:
-                        original_due_date = original_due_date.replace(tzinfo=timezone.utc)
-                    elif requested_due_date.tzinfo is None:
-                        requested_due_date = requested_due_date.replace(tzinfo=timezone.utc)
-
-                    extension_days = (requested_due_date - original_due_date).days
+                    extension_duration = requested_due_date - original_due_date
 
                     # Only validate max days if the policy has it enabled
-                    if policy.enable_max_days_extension and extension_days > policy.max_days_extension:
+                    if (
+                        policy.enable_max_days_extension
+                        and extension_duration > timedelta(days=policy.max_days_extension)
+                    ):
                         return jsonify({
                             'error': f'Extension request exceeds maximum allowed days ({policy.max_days_extension})'
                         }), 400
 
-                    if extension_days < 0:
+                    if extension_duration <= timedelta(0):
                         return jsonify({
                             'error': f'Requested due date must be after original due date. Assignment "{assignment.name}" is due on {original_due_date.strftime("%Y-%m-%d %I:%M %p UTC")}'
                         }), 400
@@ -449,12 +446,26 @@ def init_extension_routes(app):
 
             # Handle approval
             if ext_request.status == 'approved':
+                canvas = get_canvas_service()
+                canvas_course = canvas.get_course(course_id)
+                course_timezone = timezone_from_name(
+                    getattr(canvas_course, 'time_zone', None)
+                )
+
                 # Determine final due date (instructor override or student request)
                 final_due_date = ext_request.requested_due_date
                 if data.get('newDueDate'):
-                    final_due_date = datetime.fromisoformat(
-                        data['newDueDate'].replace('Z', '+00:00')
+                    # Current clients send an offset. Treat timezone-less values
+                    # from older cached clients as course-local wall-clock time.
+                    final_due_date = parse_datetime_to_utc(
+                        data['newDueDate'],
+                        course_timezone,
                     )
+                elif final_due_date.tzinfo is None:
+                    # Existing database timestamps represent UTC instants.
+                    final_due_date = final_due_date.replace(tzinfo=timezone.utc)
+                else:
+                    final_due_date = final_due_date.astimezone(timezone.utc)
 
                 ext_request.final_due_date = final_due_date
 
@@ -497,8 +508,6 @@ def init_extension_routes(app):
 
                 # Create or update Canvas assignment override
                 try:
-                    canvas = get_canvas_service()
-
                     # Check if an override already exists for this request
                     if ext_request.canvas_override_id:
                         # Update existing override

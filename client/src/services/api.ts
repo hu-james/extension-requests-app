@@ -38,7 +38,7 @@ export const assignmentApi = {
 };
 
 export const extensionApi = {
-  createRequest: async (courseId: number, request: ExtensionRequestForm): Promise<any> => {
+  createRequest: async (courseId: number, request: ExtensionRequestForm): Promise<unknown> => {
     // Create FormData for file uploads
     const formData = new FormData();
 

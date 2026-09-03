@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, waitFor } from '@testing-library/react'
+import { createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import axe from 'axe-core'
 import { InstructorView } from '../pages/InstructorView'
@@ -54,13 +54,14 @@ const mockRequest = {
 
 describe('InstructorView — Accessibility (axe)', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     vi.mocked(extensionApi.getInstructorRequests).mockResolvedValue([])
     vi.mocked(policyApi.getCoursePolicy).mockResolvedValue(mockPolicy)
   })
 
   it('has no violations with no requests', async () => {
     const { container } = renderWithQuery(<InstructorView courseId={1} />)
-    await waitFor(() => expect(container.querySelector('h1')).toBeInTheDocument())
+    await screen.findByText('No pending requests found')
 
     const results = await axe.run(container)
     expect(results.violations).toHaveLength(0)
@@ -69,7 +70,7 @@ describe('InstructorView — Accessibility (axe)', () => {
   it('has no violations with a pending request', async () => {
     vi.mocked(extensionApi.getInstructorRequests).mockResolvedValue([mockRequest])
     const { container } = renderWithQuery(<InstructorView courseId={1} />)
-    await waitFor(() => expect(container.querySelector('h1')).toBeInTheDocument())
+    await screen.findByRole('article', { name: /extension request from alice smith for midterm project/i })
 
     const results = await axe.run(container)
     expect(results.violations).toHaveLength(0)
@@ -95,7 +96,10 @@ describe('InstructorView — Accessibility (axe)', () => {
       },
     ])
     const { container } = renderWithQuery(<InstructorView courseId={1} />)
-    await waitFor(() => expect(container.querySelector('h1')).toBeInTheDocument())
+    const allRequestsFilter = await screen.findByRole('button', { name: /show all requests/i })
+    fireEvent.click(allRequestsFilter)
+    await screen.findByRole('article', { name: /extension request from alice smith for midterm project/i })
+    await screen.findByRole('article', { name: /extension request from bob jones for midterm project/i })
 
     const results = await axe.run(container)
     expect(results.violations).toHaveLength(0)
@@ -103,14 +107,97 @@ describe('InstructorView — Accessibility (axe)', () => {
 
   it('has no violations on the Policy Settings tab', async () => {
     const { container, getByRole } = renderWithQuery(<InstructorView courseId={1} />)
-    await waitFor(() => expect(container.querySelector('h1')).toBeInTheDocument())
 
     // Switch to the settings tab
-    getByRole('tab', { name: /policy settings/i }).click()
+    fireEvent.click(getByRole('tab', { name: /policy settings/i }))
+    await screen.findByRole('button', { name: /edit policy/i })
     await waitFor(() => expect(getByRole('tabpanel')).toBeInTheDocument())
 
     const results = await axe.run(container)
     expect(results.violations).toHaveLength(0)
+  })
+
+  it('prevents Enter on a policy checkbox from submitting the policy form', async () => {
+    const { getByRole } = renderWithQuery(<InstructorView courseId={1} />)
+    await waitFor(() => expect(getByRole('heading', { name: /manage extension requests/i })).toBeInTheDocument())
+
+    fireEvent.click(getByRole('tab', { name: /policy settings/i }))
+    fireEvent.click(await waitFor(() => getByRole('button', { name: /edit policy/i })))
+
+    const checkbox = getByRole('checkbox', { name: /require documentation/i })
+    expect(checkbox).not.toBeChecked()
+
+    const enterEvent = createEvent.keyDown(checkbox, { key: 'Enter' })
+    fireEvent(checkbox, enterEvent)
+
+    expect(enterEvent.defaultPrevented).toBe(true)
+    expect(checkbox).not.toBeChecked()
+    expect(policyApi.updateCoursePolicy).not.toHaveBeenCalled()
+  })
+
+  it('associates approval errors with the date field and focuses it', async () => {
+    vi.mocked(extensionApi.getInstructorRequests).mockResolvedValue([mockRequest])
+    renderWithQuery(<InstructorView courseId={1} />)
+
+    const request = await screen.findByRole('article', {
+      name: /extension request from alice smith for midterm project/i,
+    })
+    const dateInput = within(request).getByLabelText(/new due date for midterm project/i)
+    fireEvent.change(dateInput, { target: { value: '' } })
+
+    const approveButton = within(request).getByRole('button', {
+      name: /approve extension request for alice smith, midterm project/i,
+    })
+    fireEvent.click(approveButton)
+
+    await waitFor(() => expect(document.activeElement).toBe(dateInput))
+    expect(dateInput).toHaveAttribute('aria-invalid', 'true')
+    expect(dateInput).toHaveAttribute(
+      'aria-describedby',
+      'newDate-help-1 newDate-error-1'
+    )
+    expect(within(request).getByText('Enter a valid new due date before approving this request.')).toBeInTheDocument()
+    expect(extensionApi.updateRequestStatus).not.toHaveBeenCalled()
+  })
+
+  it('moves focus into policy editing and restores it after cancel', async () => {
+    renderWithQuery(<InstructorView courseId={1} />)
+    fireEvent.click(await screen.findByRole('tab', { name: /policy settings/i }))
+
+    const editButton = await screen.findByRole('button', { name: /edit policy/i })
+    fireEvent.click(editButton)
+    const maxDaysToggle = await screen.findByRole('checkbox', {
+      name: /set maximum days extension/i,
+    })
+
+    await waitFor(() => expect(document.activeElement).toBe(maxDaysToggle))
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: /edit policy/i }))
+    )
+  })
+
+  it('keeps focus usable when a policy validation notice is dismissed', async () => {
+    const { container } = renderWithQuery(<InstructorView courseId={1} />)
+    fireEvent.click(await screen.findByRole('tab', { name: /policy settings/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /edit policy/i }))
+
+    const maxDaysToggle = await screen.findByRole('checkbox', {
+      name: /set maximum days extension/i,
+    })
+    fireEvent.click(maxDaysToggle)
+    const maxDaysInput = await screen.findByRole('spinbutton', {
+      name: /maximum days extension:/i,
+    })
+    fireEvent.change(maxDaysInput, { target: { value: '0' } })
+    fireEvent.click(screen.getByRole('button', { name: /save policy/i }))
+
+    const closeButton = await screen.findByRole('button', { name: /close notification/i })
+    closeButton.focus()
+    fireEvent.click(closeButton)
+
+    await waitFor(() => expect(document.activeElement).toBe(container.querySelector('main')))
   })
 
   it('has no violations with mixed pending, approved, and denied requests', async () => {
@@ -120,7 +207,7 @@ describe('InstructorView — Accessibility (axe)', () => {
       { ...mockRequest, id: 3, studentName: 'Dan Brown',  status: 'denied', instructorNotes: 'No documentation.' },
     ])
     const { container } = renderWithQuery(<InstructorView courseId={1} />)
-    await waitFor(() => expect(container.querySelector('h1')).toBeInTheDocument())
+    await screen.findByRole('article', { name: /extension request from alice smith for midterm project/i })
 
     const results = await axe.run(container)
     expect(results.violations).toHaveLength(0)

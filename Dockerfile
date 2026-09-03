@@ -62,7 +62,7 @@ COPY --from=frontend-builder /client/dist ./client/dist
 
 # Application source 
 COPY views.py settings.py models.py extension_views.py ./
-COPY lti13_config.py lti13_service.py canvas_service.py file_security.py ./
+COPY lti13_config.py lti13_service.py canvas_service.py file_security.py datetime_utils.py ./
 COPY static/ ./static/
 COPY templates/ ./templates/
 COPY migrations/ ./migrations/
