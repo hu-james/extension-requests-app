@@ -27,7 +27,6 @@ const SelectedFilterCheck: React.FC = () => (
 );
 
 type Notification = { type: 'success' | 'error'; message: string };
-const FOCUS_RESTORATION_DELAY_MS = 500;
 
 const scrollToTop = () => {
   const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -195,15 +194,13 @@ export const InstructorView: React.FC<{ courseId: number }> = ({ courseId }) => 
 
       // The active action control disappears after the decision. Move focus only
       // when that control still has focus; do not interrupt a user who moved on.
-      // Give the polite success message time to be announced before focus causes
-      // VoiceOver to speak the next control.
       if (restoreFocus) {
         window.setTimeout(() => {
           const nextAction = nextPendingRequest
             ? document.getElementById(`approve-request-${nextPendingRequest.id}`)
             : null;
           (nextAction ?? document.getElementById('requests-panel-heading'))?.focus();
-        }, FOCUS_RESTORATION_DELAY_MS);
+        }, 0);
       }
     },
     onError: (error: unknown) => {
