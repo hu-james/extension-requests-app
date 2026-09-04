@@ -160,6 +160,95 @@ describe('InstructorView — Accessibility (axe)', () => {
     expect(extensionApi.updateRequestStatus).not.toHaveBeenCalled()
   })
 
+  it('announces approval through the persistent status region and restores focus after the action disappears', async () => {
+    vi.mocked(extensionApi.getInstructorRequests).mockResolvedValue([mockRequest])
+    vi.mocked(extensionApi.updateRequestStatus).mockResolvedValue({
+      ...mockRequest,
+      status: 'approved',
+      finalDueDate: '2026-03-20T23:59:00Z',
+    })
+    const { container } = renderWithQuery(<InstructorView courseId={1} />)
+
+    const approveButton = await screen.findByRole('button', {
+      name: /approve extension request for alice smith, midterm project/i,
+    })
+    approveButton.focus()
+    fireEvent.click(approveButton)
+
+    const persistentStatus = container.querySelector('.sr-only[role="status"]')
+    await waitFor(() =>
+      expect(persistentStatus).toHaveTextContent(
+        'Extension request approved successfully. Midterm Project.'
+      )
+    )
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        document.getElementById('requests-panel-heading')
+      )
+    )
+  })
+
+  it('announces denial through the persistent status region and moves focus to the next pending action', async () => {
+    const secondRequest = {
+      ...mockRequest,
+      id: 2,
+      studentName: 'Bob Jones',
+      assignmentTitle: 'Final Essay',
+    }
+    vi.mocked(extensionApi.getInstructorRequests).mockResolvedValue([mockRequest, secondRequest])
+    vi.mocked(extensionApi.updateRequestStatus).mockResolvedValue({
+      ...mockRequest,
+      status: 'denied',
+    })
+    const { container } = renderWithQuery(<InstructorView courseId={1} />)
+
+    const denyButton = await screen.findByRole('button', {
+      name: /deny extension request for alice smith, midterm project/i,
+    })
+    denyButton.focus()
+    fireEvent.click(denyButton)
+
+    const persistentStatus = container.querySelector('.sr-only[role="status"]')
+    await waitFor(() =>
+      expect(persistentStatus).toHaveTextContent(
+        'Extension request denied successfully. Midterm Project.'
+      )
+    )
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', {
+          name: /approve extension request for bob jones, final essay/i,
+        })
+      )
+    )
+  })
+
+  it('does not move focus after an instructor has moved elsewhere while a decision is pending', async () => {
+    vi.mocked(extensionApi.getInstructorRequests).mockResolvedValue([mockRequest])
+    vi.mocked(extensionApi.updateRequestStatus).mockResolvedValue({
+      ...mockRequest,
+      status: 'approved',
+      finalDueDate: '2026-03-20T23:59:00Z',
+    })
+    const { container } = renderWithQuery(<InstructorView courseId={1} />)
+
+    const approveButton = await screen.findByRole('button', {
+      name: /approve extension request for alice smith, midterm project/i,
+    })
+    const allRequestsFilter = screen.getByRole('button', { name: /show all requests/i })
+    approveButton.focus()
+    fireEvent.click(approveButton)
+    allRequestsFilter.focus()
+
+    const persistentStatus = container.querySelector('.sr-only[role="status"]')
+    await waitFor(() =>
+      expect(persistentStatus).toHaveTextContent(
+        'Extension request approved successfully. Midterm Project.'
+      )
+    )
+    expect(document.activeElement).toBe(allRequestsFilter)
+  })
+
   it('moves focus into policy editing and restores it after cancel', async () => {
     renderWithQuery(<InstructorView courseId={1} />)
     fireEvent.click(await screen.findByRole('tab', { name: /policy settings/i }))

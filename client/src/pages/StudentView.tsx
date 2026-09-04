@@ -162,9 +162,13 @@ export const StudentView: React.FC<{ courseId: number }> = ({ courseId }) => {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+      const successMessage = 'Extension request submitted successfully.';
+      // This status region is mounted before submission. Updating it is more
+      // reliable for screen readers than mounting a live region with text.
+      setAnnouncementMessage(successMessage);
       announceNotification({
         type: 'success',
-        message: 'Extension request submitted successfully!'
+        message: successMessage
       });
       setFormErrors({});
       scrollToTop();
@@ -346,9 +350,9 @@ export const StudentView: React.FC<{ courseId: number }> = ({ courseId }) => {
         {notification && (
         <div
           ref={notificationRef}
-          role={notification.type === 'error' ? 'alert' : 'status'}
-          aria-live={notification.type === 'error' ? 'assertive' : 'polite'}
-          aria-atomic="true"
+          role={notification.type === 'error' ? 'alert' : undefined}
+          aria-live={notification.type === 'error' ? 'assertive' : undefined}
+          aria-atomic={notification.type === 'error' ? 'true' : undefined}
           tabIndex={-1}
           className={`mb-4 p-4 rounded-lg border-l-4 flex items-start justify-between ${
             notification.type === 'success'

@@ -51,6 +51,7 @@ export const InstructorView: React.FC<{ courseId: number }> = ({ courseId }) => 
   const notificationReturnFocusRef = React.useRef<HTMLElement | null>(null);
   const notificationFocusRequestedRef = React.useRef(false);
   const focusTargetRef = React.useRef<string | null>(null);
+  const pendingActionFocusRef = React.useRef<HTMLElement | null>(null);
   const mainRef = React.useRef<HTMLElement>(null);
 
   const announceNotification = (nextNotification: Notification, focus = false) => {
@@ -157,15 +158,44 @@ export const InstructorView: React.FC<{ courseId: number }> = ({ courseId }) => 
       newDueDate?: string;
     }) => extensionApi.updateRequestStatus(courseId, requestId, status, notes, newDueDate),
     onSuccess: (updatedRequest, variables) => {
+      const restoreFocus = pendingActionFocusRef.current === document.activeElement;
+      pendingActionFocusRef.current = null;
       const updatedRequests = requests.map(request =>
         request.id === updatedRequest.id ? updatedRequest : request
       );
       queryClient.setQueryData(['instructorRequests', courseId], updatedRequests);
+      const decision = variables.status === 'approved' ? 'approved' : 'denied';
+      const successMessage = `Extension request ${decision} successfully.`;
+      const currentRequestIndex = sortedRequests.findIndex(
+        (request) => request.id === updatedRequest.id
+      );
+      const orderedOtherRequests = [
+        ...sortedRequests.slice(currentRequestIndex + 1),
+        ...sortedRequests.slice(0, currentRequestIndex),
+      ];
+      const nextPendingRequest = orderedOtherRequests.find(
+        (request) => request.status === 'pending'
+      );
+
+      // This status region is mounted before the mutation begins. Updating it is
+      // more reliable for screen readers than mounting a live region with text.
+      setAnnouncementMessage(`${successMessage} ${updatedRequest.assignmentTitle}.`);
       announceNotification({
         type: 'success',
-        message: `Extension request ${variables.status === 'approved' ? 'approved' : 'denied'} successfully!`
+        message: successMessage
       });
       scrollToTop();
+
+      // The active action control disappears after the decision. Move focus only
+      // when that control still has focus; do not interrupt a user who moved on.
+      if (restoreFocus) {
+        window.setTimeout(() => {
+          const nextAction = nextPendingRequest
+            ? document.getElementById(`approve-request-${nextPendingRequest.id}`)
+            : null;
+          (nextAction ?? document.getElementById('requests-panel-heading'))?.focus();
+        }, 0);
+      }
     },
     onError: (error: unknown) => {
       const errorMessage = getApiErrorMessage(error, 'Failed to update extension request. Please try again.');
@@ -232,6 +262,8 @@ export const InstructorView: React.FC<{ courseId: number }> = ({ courseId }) => 
 
     clearRequestError(dateField);
     clearRequestError(notesField);
+    const activeElement = document.activeElement;
+    pendingActionFocusRef.current = activeElement instanceof HTMLElement ? activeElement : null;
     updateRequestMutation.mutate({
       requestId,
       status,
@@ -333,9 +365,9 @@ export const InstructorView: React.FC<{ courseId: number }> = ({ courseId }) => 
         {notification && (
           <div
             ref={notificationRef}
-          role={notification.type === 'error' ? 'alert' : 'status'}
-          aria-live={notification.type === 'error' ? 'assertive' : 'polite'}
-            aria-atomic="true"
+            role={notification.type === 'error' ? 'alert' : undefined}
+            aria-live={notification.type === 'error' ? 'assertive' : undefined}
+            aria-atomic={notification.type === 'error' ? 'true' : undefined}
             tabIndex={-1}
             className={`mb-4 p-4 rounded-lg border-l-4 flex items-start justify-between ${
               notification.type === 'success'
@@ -987,6 +1019,7 @@ export const InstructorView: React.FC<{ courseId: number }> = ({ courseId }) => 
 
                       <div className="flex space-x-2 pt-2">
                         <button
+                          id={`approve-request-${request.id}`}
                           type="button"
                           disabled={updateRequestMutation.isPending}
                           aria-busy={updateRequestMutation.isPending}
