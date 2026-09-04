@@ -160,13 +160,13 @@ describe('InstructorView — Accessibility (axe)', () => {
     expect(extensionApi.updateRequestStatus).not.toHaveBeenCalled()
   })
 
-  it('announces approval through the persistent status region and restores focus after the action disappears', async () => {
+  it('announces approval and restores focus after a disabled action causes focus to fall back to the document', async () => {
     vi.mocked(extensionApi.getInstructorRequests).mockResolvedValue([mockRequest])
-    vi.mocked(extensionApi.updateRequestStatus).mockResolvedValue({
-      ...mockRequest,
-      status: 'approved',
-      finalDueDate: '2026-03-20T23:59:00Z',
+    let resolveUpdate!: (value: Awaited<ReturnType<typeof extensionApi.updateRequestStatus>>) => void
+    vi.mocked(extensionApi.updateRequestStatus).mockImplementation(() => new Promise((resolve) => {
+      resolveUpdate = resolve
     })
+    )
     const { container } = renderWithQuery(<InstructorView courseId={1} />)
 
     const approveButton = await screen.findByRole('button', {
@@ -174,6 +174,14 @@ describe('InstructorView — Accessibility (axe)', () => {
     })
     approveButton.focus()
     fireEvent.click(approveButton)
+    await waitFor(() => expect(approveButton).toBeDisabled())
+    document.body.tabIndex = -1
+    document.body.focus()
+    resolveUpdate({
+      ...mockRequest,
+      status: 'approved',
+      finalDueDate: '2026-03-20T23:59:00Z',
+    })
 
     const persistentStatus = container.querySelector('.sr-only[role="status"]')
     await waitFor(() =>
@@ -186,6 +194,7 @@ describe('InstructorView — Accessibility (axe)', () => {
         document.getElementById('requests-panel-heading')
       )
     )
+    document.body.removeAttribute('tabindex')
   })
 
   it('announces denial through the persistent status region and moves focus to the next pending action', async () => {
@@ -225,11 +234,11 @@ describe('InstructorView — Accessibility (axe)', () => {
 
   it('does not move focus after an instructor has moved elsewhere while a decision is pending', async () => {
     vi.mocked(extensionApi.getInstructorRequests).mockResolvedValue([mockRequest])
-    vi.mocked(extensionApi.updateRequestStatus).mockResolvedValue({
-      ...mockRequest,
-      status: 'approved',
-      finalDueDate: '2026-03-20T23:59:00Z',
+    let resolveUpdate!: (value: Awaited<ReturnType<typeof extensionApi.updateRequestStatus>>) => void
+    vi.mocked(extensionApi.updateRequestStatus).mockImplementation(() => new Promise((resolve) => {
+      resolveUpdate = resolve
     })
+    )
     const { container } = renderWithQuery(<InstructorView courseId={1} />)
 
     const approveButton = await screen.findByRole('button', {
@@ -238,7 +247,13 @@ describe('InstructorView — Accessibility (axe)', () => {
     const allRequestsFilter = screen.getByRole('button', { name: /show all requests/i })
     approveButton.focus()
     fireEvent.click(approveButton)
+    await waitFor(() => expect(approveButton).toBeDisabled())
     allRequestsFilter.focus()
+    resolveUpdate({
+      ...mockRequest,
+      status: 'approved',
+      finalDueDate: '2026-03-20T23:59:00Z',
+    })
 
     const persistentStatus = container.querySelector('.sr-only[role="status"]')
     await waitFor(() =>

@@ -158,7 +158,13 @@ export const InstructorView: React.FC<{ courseId: number }> = ({ courseId }) => 
       newDueDate?: string;
     }) => extensionApi.updateRequestStatus(courseId, requestId, status, notes, newDueDate),
     onSuccess: (updatedRequest, variables) => {
-      const restoreFocus = pendingActionFocusRef.current === document.activeElement;
+      const activeElement = document.activeElement;
+      const focusFellBackToDocument =
+        activeElement === document.body || activeElement === document.documentElement;
+      const restoreFocus = Boolean(
+        pendingActionFocusRef.current &&
+        (pendingActionFocusRef.current === activeElement || focusFellBackToDocument)
+      );
       pendingActionFocusRef.current = null;
       const updatedRequests = requests.map(request =>
         request.id === updatedRequest.id ? updatedRequest : request
@@ -233,7 +239,8 @@ export const InstructorView: React.FC<{ courseId: number }> = ({ courseId }) => 
     requestId: number,
     status: 'approved' | 'denied',
     notes: string,
-    newDueDate?: string
+    newDueDate?: string,
+    trigger?: HTMLElement
   ) => {
     const dateField = `newDate-${requestId}`;
     const notesField = `notes-${requestId}`;
@@ -262,8 +269,10 @@ export const InstructorView: React.FC<{ courseId: number }> = ({ courseId }) => 
 
     clearRequestError(dateField);
     clearRequestError(notesField);
-    const activeElement = document.activeElement;
-    pendingActionFocusRef.current = activeElement instanceof HTMLElement ? activeElement : null;
+    // Native buttons lose focus when disabled. Only restore focus later when a
+    // keyboard-focused decision button caused that loss; mouse users and users
+    // who move elsewhere while waiting keep control of their focus.
+    pendingActionFocusRef.current = trigger === document.activeElement ? trigger : null;
     updateRequestMutation.mutate({
       requestId,
       status,
@@ -1023,11 +1032,12 @@ export const InstructorView: React.FC<{ courseId: number }> = ({ courseId }) => 
                           type="button"
                           disabled={updateRequestMutation.isPending}
                           aria-busy={updateRequestMutation.isPending}
-                          onClick={() => handleStatusUpdate(
+                          onClick={(event) => handleStatusUpdate(
                             request.id,
                             'approved',
                             (document.getElementById(`notes-${request.id}`) as HTMLTextAreaElement).value,
-                            (document.getElementById(`newDate-${request.id}`) as HTMLInputElement).value
+                            (document.getElementById(`newDate-${request.id}`) as HTMLInputElement).value,
+                            event.currentTarget
                           )}
                           aria-label={`Approve extension request for ${request.studentName}, ${request.assignmentTitle}`}
                           className="inline-flex items-center px-4 py-2 bg-green-700 text-white rounded hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1041,10 +1051,12 @@ export const InstructorView: React.FC<{ courseId: number }> = ({ courseId }) => 
                           type="button"
                           disabled={updateRequestMutation.isPending}
                           aria-busy={updateRequestMutation.isPending}
-                          onClick={() => handleStatusUpdate(
+                          onClick={(event) => handleStatusUpdate(
                             request.id,
                             'denied',
-                            (document.getElementById(`notes-${request.id}`) as HTMLTextAreaElement).value
+                            (document.getElementById(`notes-${request.id}`) as HTMLTextAreaElement).value,
+                            undefined,
+                            event.currentTarget
                           )}
                           aria-label={`Deny extension request for ${request.studentName}, ${request.assignmentTitle}`}
                           className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
