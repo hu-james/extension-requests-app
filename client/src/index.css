@@ -26,19 +26,20 @@ body {
 
 /* Skip to main content link */
 .skip-to-main {
-  position: absolute;
-  top: -40px;
-  left: 0;
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  transform: translateY(calc(-100% - 0.5rem));
   background: #2563eb;
   color: white;
   padding: 8px 16px;
   text-decoration: none;
   border-radius: 0 0 4px 0;
-  z-index: 100;
+  z-index: 1000;
 }
 
 .skip-to-main:focus {
-  top: 0;
+  transform: translateY(0);
 }
 
 /* Visually hidden but accessible to screen readers */
