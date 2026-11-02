@@ -10,6 +10,17 @@ type GradeRow = {
     score: string;
 }
 
+//props
+interface CSVGradebookProps {
+  courseId: number;
+}
+
+interface SelectAssignmentProps {
+  courseId: number;
+  selectedAssignmentId: string;
+  setSelectedAssignmentId: (id: string) => void;
+}
+
 
 function parseCsv(text: string): GradeRow[] {
     const lines = text.trim().split(/\r?\n/).filter(Boolean)
@@ -96,14 +107,7 @@ function parseCsv(text: string): GradeRow[] {
   }
 
 
-
-//props
-interface CSVGradebookProps {
-  courseId: number;
-}
-
-
-export function SelectAssignment({ courseId }: CSVGradebookProps){
+export function SelectAssignment({courseId,selectedAssignmentId,setSelectedAssignmentId}: SelectAssignmentProps) {
   const {
     data: assignments = [],
     isError: assignmentsLoadFailed,
@@ -137,7 +141,10 @@ export function SelectAssignment({ courseId }: CSVGradebookProps){
   }
 
   return (
-    <select>
+    <select
+    value={selectedAssignmentId}
+    onChange={(e) => setSelectedAssignmentId(e.target.value)}
+    >
       {assignments.map((assignment: Assignment) => (
         <option key={assignment.id} value={assignment.id}>
           {assignment.title}
@@ -153,6 +160,7 @@ export function CSVGradebook({ courseId }: CSVGradebookProps) {
     const [csvText, setCsvText] = useState('');
     const [error, setError] = useState('');
     const rows = parseCsv(csvText);
+    const [selectedAssignmentId, setSelectedAssignmentId] = useState('');
 
     //debugging
     console.log('CSV Gradebook courseId:', courseId);
@@ -176,7 +184,7 @@ export function CSVGradebook({ courseId }: CSVGradebookProps) {
                 Upload a CSV file with student identifiers and grades.
             </p>
 
-            <SelectAssignment courseId={courseId} />
+            <SelectAssignment courseId={courseId} selectedAssignmentId={selectedAssignmentId} setSelectedAssignmentId={setSelectedAssignmentId}/>
 
             <div className="space-y-4">
                 <label htmlFor="csv-upload" className="block text-sm font-medium text-gray-700">
